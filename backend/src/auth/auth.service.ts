@@ -22,25 +22,30 @@ export class AuthService {
       throw new ConflictException('Email sudah terdaftar');
     }
 
-    const hashedPassword = await bcrypt.hash(dto.password, 10);
-
-    // Find or create company
-    let company = await this.prisma.company.findFirst({
+    // Registration always opens a BRAND NEW tenant. Reusing an existing
+    // company when the name matches would let anyone who guesses a tenant
+    // name join it — and pick their own role while doing so.
+    // Joining an existing tenant is admin-only: POST /api/v1/users.
+    const existingCompany = await this.prisma.company.findFirst({
       where: { name: dto.companyName },
     });
 
-    if (!company) {
-      company = await this.prisma.company.create({
-        data: { name: dto.companyName },
-      });
+    if (existingCompany) {
+      throw new ConflictException('Nama perusahaan sudah dipakai tenant lain');
     }
+
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+
+    const company = await this.prisma.company.create({
+      data: { name: dto.companyName },
+    });
 
     const user = await this.prisma.user.create({
       data: {
         email: dto.email,
         password: hashedPassword,
         name: dto.name,
-        role: dto.role || Role.ADMIN,
+        role: Role.ADMIN, // owner of the new tenant, never client-supplied
         companyId: company.id,
       },
     });

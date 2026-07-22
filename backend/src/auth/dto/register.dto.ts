@@ -1,9 +1,8 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength, IsEnum, IsOptional } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
+import { IsEmail, IsNotEmpty, IsString, MinLength, MaxLength } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class RegisterDto {
-  @ApiProperty({ example: 'company_acme', description: 'Company name for new tenant' })
+  @ApiProperty({ example: 'Acme Corp', description: 'Name of the NEW tenant to create' })
   @IsNotEmpty()
   @IsString()
   companyName: string;
@@ -18,13 +17,12 @@ export class RegisterDto {
   @IsEmail()
   email: string;
 
-  @ApiProperty({ example: 'password123' })
+  @ApiProperty({ example: 'password123', minLength: 8, maxLength: 72 })
   @IsNotEmpty()
-  @MinLength(6)
+  @MinLength(8)
+  @MaxLength(72) // bcrypt silently truncates past 72 bytes
   password: string;
-
-  @ApiPropertyOptional({ enum: Role, default: Role.ADMIN })
-  @IsOptional()
-  @IsEnum(Role)
-  role?: Role;
 }
+// The registering user is always the ADMIN of the tenant they just created.
+// `role` is deliberately absent: with forbidNonWhitelisted a client sending
+// it gets a 400 instead of silently escalating.
