@@ -1,4 +1,13 @@
+<!-- portfolio -->
+<!-- slug: tenantly-multi-tenant-saas -->
+<!-- title: Tenantly - Multi-Tenant Project Management -->
+<!-- description: Multi-tenant SaaS project manager with session-scoped tenant isolation, Admin/Member RBAC, queue-backed notifications, and optimistic locking -->
+<!-- image: https://raw.githubusercontent.com/daffa09/tenantly/master/hero.jpeg -->
+<!-- tags: nestjs, nextjs, postgresql, prisma, bullmq, multi-tenancy, rbac -->
+
 # Tenantly — Multi-Tenant Mini Project Management
+
+![Halaman login Tenantly — panel kiri menjelaskan isolasi tenant, RBAC, dan background job; panel kanan form login dengan tiga akun demo dari dua perusahaan berbeda](hero.jpeg)
 
 Mini Asana/Trello untuk banyak perusahaan dalam satu instance. Setiap tenant punya project, task,
 dan user sendiri, dan **tidak pernah** bisa melihat data tenant lain.
