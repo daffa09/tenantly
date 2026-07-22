@@ -17,7 +17,7 @@ on:
       - '.github/workflows/frontend-ci-cd.yml'
 
 env:
-  IMAGE_NAME: taskflow-web
+  IMAGE_NAME: tenantly-web
 
 jobs:
   # ==========================================

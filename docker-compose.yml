@@ -1,22 +1,27 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: saas_postgres
+    container_name: tenantly_postgres
     restart: always
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgrespassword
-      POSTGRES_DB: saas_db
+      POSTGRES_DB: tenantly
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    # The API runs `prisma migrate deploy` on boot, so it must not start
+    # before Postgres is actually accepting connections.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   redis:
     image: redis:7-alpine
-    container_name: saas_redis
+    container_name: tenantly_redis
     restart: always
     ports:
       - "6379:6379"
@@ -25,26 +30,30 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: saas_backend
+    container_name: tenantly_api
     restart: always
     ports:
       - "3001:3001"
     environment:
-      DATABASE_URL: "postgresql://postgres:postgrespassword@postgres:5432/saas_db?schema=public"
-      JWT_SECRET: "super-secret-key-saas-multi-tenant-2026"
+      DATABASE_URL: "postgresql://postgres:postgrespassword@postgres:5432/tenantly?schema=public"
+      # Compose-local secret. Real environments inject their own.
+      JWT_SECRET: "compose-local-secret-not-for-production-use"
       JWT_EXPIRES_IN: "7d"
       PORT: 3001
+      CORS_ORIGINS: "http://localhost:3000"
       REDIS_HOST: "redis"
       REDIS_PORT: 6379
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: saas_frontend
+    container_name: tenantly_web
     restart: always
     ports:
       - "3000:3000"
