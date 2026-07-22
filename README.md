@@ -20,11 +20,12 @@ sekaligus migration yang ter-version. BullMQ karena Redis sudah lazim ada di sta
 5. [API](#5-api)
 6. [RBAC](#6-rbac)
 7. [Background Job](#7-background-job)
-8. [Testing](#8-testing)
-9. [Keputusan Keamanan](#9-keputusan-keamanan)
-10. [Yang Di-skip & Rencana Berikutnya](#10-yang-di-skip--rencana-berikutnya)
-11. [Keputusan yang Masih Saya Ragukan](#11-keputusan-yang-masih-saya-ragukan)
-12. [Peta Requirement](#12-peta-requirement)
+8. [Concurrency & Race Condition](#8-concurrency--race-condition)
+9. [Testing](#9-testing)
+10. [Keputusan Keamanan](#10-keputusan-keamanan)
+11. [Yang Di-skip & Rencana Berikutnya](#11-yang-di-skip--rencana-berikutnya)
+12. [Keputusan yang Masih Saya Ragukan](#12-keputusan-yang-masih-saya-ragukan)
+13. [Peta Requirement](#13-peta-requirement)
 
 ---
 
@@ -165,7 +166,7 @@ lain menghasilkan `404`.
 **Trade-off:** disiplin ada di level aplikasi. Satu query yang lupa `where: { companyId }` langsung
 membocorkan data lintas tenant — database tidak akan menghentikannya. Mitigasi sekarang: semua akses
 lewat service yang menerima `companyId` sebagai argumen wajib, plus e2e test yang menembak ID tenant
-lain secara langsung. Mitigasi sebenarnya adalah PostgreSQL RLS (lihat [bagian 10](#10-yang-di-skip--rencana-berikutnya)).
+lain secara langsung. Mitigasi sebenarnya adalah PostgreSQL RLS (lihat [bagian 11](#11-yang-di-skip--rencana-berikutnya)).
 
 **Kenapa `404`, bukan `403`:** `403` secara implisit mengonfirmasi bahwa ID tersebut ada, dan itu
 cukup untuk memetakan isi tenant lain lewat tebakan. Dengan `404`, resource tenant lain benar-benar
@@ -195,6 +196,10 @@ Semua endpoint ber-prefix `/api/v1`, dengan envelope seragam dari satu intercept
 | `POST` | `/projects/:id/tasks` | Admin saja |
 | `PATCH` | `/projects/:id/tasks/:taskId` | Admin, atau member yang menjadi assignee-nya |
 | `DELETE` | `/projects/:id/tasks/:taskId` | Admin saja |
+
+`PATCH` task menerima field opsional `expectedUpdatedAt` — nilai `updatedAt` task saat klien terakhir
+membacanya. Kalau task sudah berubah sejak itu, request ditolak `409` alih-alih menimpa diam-diam:
+lihat [§8](#8-concurrency--race-condition).
 
 Swagger lengkap: <http://localhost:3001/api/docs>
 Swagger production: <https://tenantly.daffathan-labs.my.id/api/docs>
@@ -227,12 +232,72 @@ catatan bahwa itu menyembunyikan Redis yang sedang down.
 
 ---
 
-## 8. Testing
+## 8. Concurrency & Race Condition
+
+**Operasi yang dijaga: `PATCH /projects/:id/tasks/:taskId`** — memindahkan task di papan Kanban.
+
+**Masalahnya.** Dua orang menyeret task yang sama hampir bersamaan. Keduanya membaca task dalam
+status `TODO`, keduanya mengirim `PATCH`. Tanpa penjagaan, tulisan kedua menang dan tulisan pertama
+hilang tanpa jejak — tidak ada error, tidak ada log. Orang pertama mengira task-nya sudah pindah, dan
+papannya menampilkan sesuatu yang tidak lagi benar sampai dia me-reload.
+
+**Solusinya: optimistic locking.** Klien mengirim balik `updatedAt` yang dia lihat sebagai
+`expectedUpdatedAt`. Server tidak melakukan `update` langsung, melainkan `updateMany` yang syaratnya
+ikut mencocokkan timestamp itu:
+
+```ts
+const { count } = await this.prisma.task.updateMany({
+  where: {
+    id: taskId,
+    companyId: user.companyId,
+    ...(expectedUpdatedAt && { updatedAt: expectedUpdatedAt }),
+  },
+  data: changes,
+});
+
+if (count === 0) {
+  throw new ConflictException('Task sudah diubah orang lain sejak terakhir Anda memuatnya...');
+}
+```
+
+Cek dan tulis terjadi dalam satu statement SQL, jadi tidak ada celah antara "membaca" dan "menulis".
+Yang commit duluan menaikkan `updatedAt`; syarat milik penulis kedua tidak lagi cocok, `count` jadi
+`0`, dan dia menerima `409` — bukan menimpa. Ini pola `If-Match`/ETag, dipindah ke body.
+
+Implementasi: [`TasksService.update`](backend/src/tasks/tasks.service.ts) ·
+Test: [`tenant-isolation.e2e-spec.ts`](backend/test/tenant-isolation.e2e-spec.ts) grup 5.
+
+**Kenapa bukan transaksi atau `SELECT FOR UPDATE`.** Lock pesimistik menahan baris — dan satu koneksi
+pool — selama request berjalan, demi konflik yang pada beban nyata jarang terjadi, sambil membuka
+pintu deadlock kalau nanti ada operasi yang mengunci beberapa baris dengan urutan berbeda. Optimistic
+locking membuat jalur normal berjalan tanpa biaya tambahan dan hanya membayar saat benar-benar
+bentrok. Catatan jujurnya: kalau nanti ada operasi yang harus mengubah beberapa baris secara atomik,
+`$transaction` tetap dibutuhkan — ini bukan pengganti transaksi.
+
+**Kenapa `updatedAt`, bukan kolom `version` baru.** `updatedAt` sudah ada di semua model, sudah
+otomatis naik lewat `@updatedAt`, dan disimpan sebagai `TIMESTAMP(3)` — presisi milidetik, aman
+round-trip lewat JSON ISO string. Kolom `version` berarti migration baru untuk informasi yang sudah
+dimiliki tabel. Batasnya saya sebut terbuka: kalau satu baris yang sama pernah di-update lebih dari
+sekali dalam satu milidetik, dua penulis bisa membawa token yang sama dan keduanya lolos. Di titik
+itu, `version Int @default(0)` adalah jawabannya — catatannya sudah ditempel di kode.
+
+**Kenapa fieldnya opsional.** Klien non-browser (`curl`, Swagger, script) tetap bisa `PATCH` tanpa
+token; frontend selalu mengirimnya. Konsekuensinya diakui: proteksinya opt-in, jadi klien yang tidak
+mengirim token tetap bisa menimpa — lihat [§12](#12-keputusan-yang-masih-saya-ragukan).
+
+**Yang dilihat user.** Tab yang kalah tidak sekadar ter-rollback tanpa penjelasan: papannya otomatis
+di-refresh ke keadaan terbaru dan muncul toast *"Someone else moved this task — board refreshed"*.
+Respons yang berhasil juga dipakai untuk mengganti task di state, supaya `updatedAt` tidak basi dan
+drag berikutnya tidak kena `409` palsu.
+
+---
+
+## 9. Testing
 
 ```bash
 cd backend
 npm test           # 2 unit test — tidak butuh database, jalan di CI
-npm run test:e2e   # 14 test — butuh PostgreSQL + Redis; suite ini MENGHAPUS isi database
+npm run test:e2e   # 15 test — butuh PostgreSQL + Redis; suite ini MENGHAPUS isi database
 ```
 
 `test:e2e` ([`backend/test/tenant-isolation.e2e-spec.ts`](backend/test/tenant-isolation.e2e-spec.ts)):
@@ -243,12 +308,13 @@ npm run test:e2e   # 14 test — butuh PostgreSQL + Redis; suite ini MENGHAPUS i
 | RBAC | Member tidak bisa hapus project, tidak bisa tambah user, tidak bisa ubah task orang lain — tapi **bisa** ubah task miliknya |
 | Validasi input | Task tanpa title ditolak `400` |
 | Sesi | Token hanya di cookie httpOnly (tidak pernah di body); request tanpa cookie ditolak `401` |
+| Race condition | Dua `PATCH` bersamaan dari pembacaan yang sama → satu `200`, satu `409`, dan pemenangnya benar-benar tersimpan; token basi ditolak `409`; `PATCH` tanpa token tetap `200` |
 
 CI ([`.github/workflows/`](.github/workflows/)) menjalankan lint, unit test, Trivy scan, dan build image.
 
 ---
 
-## 9. Keputusan Keamanan
+## 10. Keputusan Keamanan
 
 | Keputusan | Alasan |
 | :--- | :--- |
@@ -262,7 +328,7 @@ CI ([`.github/workflows/`](.github/workflows/)) menjalankan lint, unit test, Tri
 
 ---
 
-## 10. Yang Di-skip & Rencana Berikutnya
+## 11. Yang Di-skip & Rencana Berikutnya
 
 | # | Yang di-skip | Rencana |
 | :--- | :--- | :--- |
@@ -272,13 +338,12 @@ CI ([`.github/workflows/`](.github/workflows/)) menjalankan lint, unit test, Tri
 | 4 | **CSRF token** — mengandalkan `SameSite=Lax` + allowlist CORS | Double-submit token kalau nanti ada endpoint lintas site |
 | 5 | **MEMBER masih bisa mengubah `assigneeId`** task miliknya — artinya bisa melempar tugasnya ke orang lain | Batasi field yang boleh diubah member ke `status` saja |
 | 6 | **E2E belum jalan di CI** | Tambah service container Postgres + Redis di workflow |
-| 7 | **Race condition** — dua orang memindahkan task yang sama = "yang terakhir menang" | Kolom `version` + update bersyarat (optimistic locking) supaya update kedua ditolak, bukan diam-diam menimpa |
 
 Urutannya sengaja: 1 dan 5 adalah lubang keamanan, sisanya kualitas operasional.
 
 ---
 
-## 11. Keputusan yang Masih Saya Ragukan
+## 12. Keputusan yang Masih Saya Ragukan
 
 **Cookie httpOnly vs token di header.** Cookie menutup pencurian token lewat XSS, tapi menukarnya
 dengan permukaan CSRF dan membuat konsumen non-browser (mobile, service-to-service) lebih repot —
@@ -291,24 +356,31 @@ Keraguan kedua: **`404` untuk resource tenant lain.** Ini menyembunyikan informa
 membuat debugging produksi lebih sulit — "tidak ada" dan "bukan milikmu" jadi tidak terbedakan dari
 log akses. Kompromi yang saya ambil: response tetap `404`, kejadiannya dicatat di log server.
 
+Keraguan ketiga: **`expectedUpdatedAt` dibuat opsional, bukan wajib.** Versi ketat mewajibkannya untuk
+semua klien dan menutup celah sepenuhnya, tapi memaksa setiap konsumen API melakukan read-before-write
+— termasuk script satu baris yang cuma ingin menandai satu task selesai. Untuk sekarang saya memilih
+opsional dan frontend selalu mengirimnya, dengan konsekuensi yang saya sadari: klien yang tidak
+mengirim token tetap bisa menimpa. Kalau nanti ada klien kedua yang menulis task (mobile, integrasi),
+saya cenderung mewajibkannya dan menerima biayanya.
+
 ---
 
-## 12. Peta Requirement
+## 13. Peta Requirement
 
 | Requirement | Status | Di mana |
 | :--- | :--- | :--- |
 | 1. Skema DB + ERD/migration + strategi multi-tenancy | ✅ | [§3](#3-skema-database--erd), [§4](#4-strategi-multi-tenancy) |
-| 2. Auth + tenant isolation (resolve dari sesi) | ✅ | [§4](#4-strategi-multi-tenancy), [§9](#9-keputusan-keamanan) |
+| 2. Auth + tenant isolation (resolve dari sesi) | ✅ | [§4](#4-strategi-multi-tenancy), [§10](#10-keputusan-keamanan) |
 | 3. CRUD Project & Task, prefix `/api/v1`, envelope seragam | ✅ | [§5](#5-api) |
 | 4. RBAC Admin/Member | ✅ | [§6](#6-rbac) |
 | 5. Background job lewat queue | ✅ | [§7](#7-background-job) |
-| 6. Testing (min. 3, satu membuktikan isolation) | ✅ 16 test | [§8](#8-testing) |
+| 6. Testing (min. 3, satu membuktikan isolation) | ✅ 17 test | [§9](#9-testing) |
 | 7. README (run, trade-off, skip, keraguan) | ✅ | dokumen ini |
 | ➕ Index + hindari N+1 | ✅ | [§3](#3-skema-database--erd) |
 | ➕ Migration reversible | ✅ | [§1](#1-cara-menjalankan) — `down.sql` |
-| ➕ CI (lint + test) + Dockerfile | ✅ | [§8](#8-testing) |
-| ➕ Audit trail | ❌ | [§10](#10-yang-di-skip--rencana-berikutnya) #2 |
-| ➕ Penanganan race condition | ❌ | [§10](#10-yang-di-skip--rencana-berikutnya) #7 |
+| ➕ CI (lint + test) + Dockerfile | ✅ | [§9](#9-testing) |
+| ➕ Penanganan race condition | ✅ | [§8](#8-concurrency--race-condition) |
+| ➕ Audit trail | ❌ | [§11](#11-yang-di-skip--rencana-berikutnya) #2 |
 
 Frontend Next.js tidak diminta soal (backend-only), tapi disertakan supaya isolasi tenant bisa
 dilihat langsung di browser dengan dua akun berbeda.

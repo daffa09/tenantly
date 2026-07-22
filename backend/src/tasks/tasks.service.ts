@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTaskDto } from './dto/create-task.dto';
@@ -155,20 +156,28 @@ export class TasksService {
       }
     }
 
-    const updatedTask = await this.prisma.task.update({
-      where: { id: taskId },
-      data: {
-        title: dto.title,
-        description: dto.description,
-        status: dto.status,
-        assigneeId: dto.assigneeId,
+    const { expectedUpdatedAt, ...changes } = dto;
+
+    // ponytail: optimistic locking memakai updatedAt yang sudah ada, bukan kolom `version` baru —
+    // presisi TIMESTAMP(3) cukup untuk laju update satu task. Kalau nanti butuh lebih ketat
+    // (>1 update per milidetik pada baris yang sama), tambah `version Int @default(0)`.
+    const { count } = await this.prisma.task.updateMany({
+      where: {
+        id: taskId,
+        companyId: user.companyId,
+        ...(expectedUpdatedAt && { updatedAt: expectedUpdatedAt }),
       },
-      include: {
-        assignee: {
-          select: { id: true, name: true, email: true },
-        },
-      },
+      data: changes,
     });
+
+    if (count === 0) {
+      throw new ConflictException(
+        'Task sudah diubah orang lain sejak terakhir Anda memuatnya. Muat ulang lalu coba lagi.',
+      );
+    }
+
+    const updatedTask = (await this.findOne(projectId, taskId, user.companyId))
+      .data;
 
     if (newAssigneeUser) {
       await this.notificationService.dispatchTaskAssigned({

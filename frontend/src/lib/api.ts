@@ -8,6 +8,9 @@ export const api = axios.create({
   withCredentials: true,
 });
 
+export const isConflict = (err: unknown) =>
+  axios.isAxiosError(err) && err.response?.status === 409;
+
 export function apiError(err: unknown, fallback: string) {
   if (axios.isAxiosError(err)) {
     const message = (err.response?.data as { message?: string } | undefined)?.message;

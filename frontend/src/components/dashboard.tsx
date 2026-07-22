@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Layers, LayoutDashboard, LogOut, Menu, Plus, X } from "lucide-react";
-import { api, apiError } from "@/lib/api";
+import { api, apiError, isConflict } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type { Member, Project, Task, TaskStatus, User } from "@/lib/types";
 import { KanbanBoard } from "./kanban-board";
@@ -151,9 +151,19 @@ export function Dashboard({ user }: { user: User }) {
     setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status } : t)));
 
     try {
-      await api.patch(`/api/v1/projects/${selected.id}/tasks/${task.id}`, { status });
+      const res = await api.patch<{ data: Task }>(
+        `/api/v1/projects/${selected.id}/tasks/${task.id}`,
+        { status, expectedUpdatedAt: task.updatedAt },
+      );
+      // pakai task dari response: updatedAt-nya sudah baru, jadi drag berikutnya tidak kena 409 palsu
+      setTasks((prev) => prev.map((t) => (t.id === task.id ? res.data.data : t)));
     } catch (err) {
       setTasks(before);
+      if (isConflict(err)) {
+        setTasks(await fetchTasks(selected.id));
+        notify("error", "Someone else moved this task — board refreshed");
+        return;
+      }
       notify("error", apiError(err, "Could not move the task"));
     }
   };

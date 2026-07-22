@@ -23,6 +23,7 @@ interface UserPayload {
 interface Entity {
   id: string;
   status?: string;
+  updatedAt?: string;
 }
 
 const body = <T = null>(res: request.Response) => res.body as Envelope<T>;
@@ -290,6 +291,78 @@ describe('SaaS Multi-Tenant & RBAC E2E Tests', () => {
       const res = await request(app.getHttpServer()).get('/api/v1/projects');
 
       expect(res.status).toBe(401);
+    });
+  });
+
+  describe('5. RACE CONDITION TESTS (optimistic locking)', () => {
+    const taskUrl = () =>
+      `/api/v1/projects/${projectAId}/tasks/${taskAssignedToAdminAId}`;
+
+    const readUpdatedAt = async () => {
+      const res = await request(app.getHttpServer())
+        .get(taskUrl())
+        .set('Cookie', cookieCompanyAAdmin);
+
+      return body<Entity>(res).data.updatedAt;
+    };
+
+    it('Two concurrent updates from the same read: one wins 200, the other is rejected 409', async () => {
+      const expectedUpdatedAt = await readUpdatedAt();
+
+      const patch = (status: string) =>
+        request(app.getHttpServer())
+          .patch(taskUrl())
+          .set('Cookie', cookieCompanyAAdmin)
+          .send({ status, expectedUpdatedAt });
+
+      const [first, second] = await Promise.all([
+        patch('IN_PROGRESS'),
+        patch('DONE'),
+      ]);
+
+      expect([first.status, second.status].sort()).toEqual([200, 409]);
+
+      const loser = first.status === 409 ? first : second;
+      expect(body(loser).message).toContain('sudah diubah orang lain');
+
+      // pemenangnya benar-benar tersimpan — bukan dua-duanya ditolak lalu task tak berubah
+      const winner = first.status === 200 ? first : second;
+      const after = await request(app.getHttpServer())
+        .get(taskUrl())
+        .set('Cookie', cookieCompanyAAdmin);
+
+      expect(body<Entity>(after).data.status).toBe(
+        body<Entity>(winner).data.status,
+      );
+    });
+
+    it('A stale token is rejected 409 even without a concurrent request', async () => {
+      const stale = await readUpdatedAt();
+
+      const ok = await request(app.getHttpServer())
+        .patch(taskUrl())
+        .set('Cookie', cookieCompanyAAdmin)
+        .send({ title: 'Moved by someone else', expectedUpdatedAt: stale });
+
+      expect(ok.status).toBe(200);
+
+      const res = await request(app.getHttpServer())
+        .patch(taskUrl())
+        .set('Cookie', cookieCompanyAAdmin)
+        .send({ status: 'TODO', expectedUpdatedAt: stale });
+
+      expect(res.status).toBe(409);
+      expect(body(res).success).toBe(false);
+    });
+
+    it('Update without the token still succeeds — the token is opt-in (Returns 200)', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(taskUrl())
+        .set('Cookie', cookieCompanyAAdmin)
+        .send({ status: 'TODO' });
+
+      expect(res.status).toBe(200);
+      expect(body<Entity>(res).data.status).toBe('TODO');
     });
   });
 });

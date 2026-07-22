@@ -24,6 +24,8 @@ export interface Task {
   status: TaskStatus;
   assigneeId?: string;
   assignee?: { id: string; name: string; email: string };
+  /** Concurrency token — dikirim balik saat PATCH supaya update bentrok ditolak 409. */
+  updatedAt: string;
 }
 
 export interface Member {
