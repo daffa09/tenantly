@@ -19,7 +19,9 @@ async function bootstrap() {
   // Swagger OpenAPI Setup
   const config = new DocumentBuilder()
     .setTitle('Tenantly API')
-    .setDescription('Multi-tenant mini project management with tenant isolation & RBAC')
+    .setDescription(
+      'Multi-tenant mini project management with tenant isolation & RBAC',
+    )
     .setVersion('1.0')
     .addCookieAuth(AUTH_COOKIE)
     .build();
@@ -31,4 +33,4 @@ async function bootstrap() {
   console.log(`🚀 Tenantly API running on http://localhost:${port}`);
   console.log(`📚 Swagger Documentation on http://localhost:${port}/api/docs`);
 }
-bootstrap();
+void bootstrap();

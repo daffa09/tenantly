@@ -23,7 +23,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       // Cookie only. No Authorization header fallback, otherwise a token
       // stolen through XSS could still be replayed by script.
-      jwtFromRequest: (req: Request) => req?.cookies?.[AUTH_COOKIE] ?? null,
+      jwtFromRequest: (req: Request): string | null =>
+        (req?.cookies as Record<string, string> | undefined)?.[AUTH_COOKIE] ??
+        null,
       ignoreExpiration: false,
       secretOrKey: configService.getOrThrow<string>('JWT_SECRET'),
     });

@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { TASK_QUEUE_NAME, TaskAssignmentJobData } from './notification.processor';
+import {
+  TASK_QUEUE_NAME,
+  TaskAssignmentJobData,
+} from './notification.processor';
 
 @Injectable()
 export class NotificationService {
@@ -13,15 +16,23 @@ export class NotificationService {
 
   async dispatchTaskAssigned(data: TaskAssignmentJobData) {
     try {
-      const job = await this.taskQueue.add('send-task-assignment-notification', data, {
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 1000 },
-      });
-      this.logger.log(`Queued async notification job #${job.id} for task assignment to ${data.assigneeEmail}`);
-    } catch (err: any) {
-      this.logger.warn(`Redis queue offline. Fallback inline log for async job: ${err?.message}`);
+      const job = await this.taskQueue.add(
+        'send-task-assignment-notification',
+        data,
+        {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 1000 },
+        },
+      );
       this.logger.log(
-        `📧 [FALLBACK MOCK EMAIL] Notification to ${data.assigneeEmail}: Task "${data.taskTitle}" assigned.`
+        `Queued async notification job #${job.id} for task assignment to ${data.assigneeEmail}`,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Redis queue offline. Fallback inline log for async job: ${(err as Error)?.message}`,
+      );
+      this.logger.log(
+        `📧 [FALLBACK MOCK EMAIL] Notification to ${data.assigneeEmail}: Task "${data.taskTitle}" assigned.`,
       );
     }
   }

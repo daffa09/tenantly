@@ -58,7 +58,9 @@ export class ProjectsService {
     });
 
     if (!project) {
-      throw new NotFoundException('Project tidak ditemukan atau tidak milik perusahaan ini');
+      throw new NotFoundException(
+        'Project tidak ditemukan atau tidak milik perusahaan ini',
+      );
     }
 
     return {

@@ -13,7 +13,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
-import { CurrentUser, JwtPayloadUser } from '../common/decorators/current-user.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Role } from '@prisma/client';
@@ -64,10 +64,7 @@ export class ProjectsController {
   @ApiOperation({ summary: 'Delete project (Admin only)' })
   @Roles(Role.ADMIN)
   @Delete(':id')
-  remove(
-    @Param('id') id: string,
-    @CurrentUser('companyId') companyId: string,
-  ) {
+  remove(@Param('id') id: string, @CurrentUser('companyId') companyId: string) {
     return this.projectsService.remove(id, companyId);
   }
 }

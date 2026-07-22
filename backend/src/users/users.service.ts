@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -78,7 +82,9 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException('User tidak ditemukan atau tidak berada di perusahaan ini');
+      throw new NotFoundException(
+        'User tidak ditemukan atau tidak berada di perusahaan ini',
+      );
     }
 
     return {

@@ -21,7 +21,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
     // a Prisma error carries table, column and constraint names. Log it for
     // us, hand the caller a generic message.
     if (!(exception instanceof HttpException)) {
-      this.logger.error(`Unhandled error on ${request.method} ${request.url}`, exception as Error);
+      this.logger.error(
+        `Unhandled error on ${request.method} ${request.url}`,
+        exception as Error,
+      );
 
       response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         success: false,
@@ -39,7 +42,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
     if (typeof exceptionResponse === 'string') {
       message = exceptionResponse;
     } else if (exceptionResponse && typeof exceptionResponse === 'object') {
-      const body = exceptionResponse as { message?: string | string[]; error?: string };
+      const body = exceptionResponse as {
+        message?: string | string[];
+        error?: string;
+      };
       const raw = body.message || body.error || message;
       message = Array.isArray(raw) ? raw.join(', ') : raw;
     }

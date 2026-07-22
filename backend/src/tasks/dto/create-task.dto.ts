@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsString, IsOptional, IsEnum, IsUUID } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsUUID,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { TaskStatus } from '@prisma/client';
 
@@ -18,7 +24,10 @@ export class CreateTaskDto {
   @IsEnum(TaskStatus)
   status?: TaskStatus;
 
-  @ApiPropertyOptional({ example: 'uuid-user-id', description: 'User ID to assign this task to' })
+  @ApiPropertyOptional({
+    example: 'uuid-user-id',
+    description: 'User ID to assign this task to',
+  })
   @IsOptional()
   @IsUUID()
   assigneeId?: string;

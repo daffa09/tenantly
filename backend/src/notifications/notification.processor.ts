@@ -17,15 +17,22 @@ export interface TaskAssignmentJobData {
 export class NotificationProcessor extends WorkerHost {
   private readonly logger = new Logger(NotificationProcessor.name);
 
-  async process(job: Job<TaskAssignmentJobData, any, string>): Promise<any> {
-    this.logger.log(`[ASYNC JOB PROCESSED] Job ID: ${job.id}, Name: ${job.name}`);
+  process(
+    job: Job<TaskAssignmentJobData>,
+  ): Promise<{ status: string; sentAt: string }> {
+    this.logger.log(
+      `[ASYNC JOB PROCESSED] Job ID: ${job.id}, Name: ${job.name}`,
+    );
     const { taskTitle, assigneeEmail, assignedBy } = job.data;
 
     // Simulasi pengiriman email notifikasi di luar request cycle (async worker)
     this.logger.log(
-      `📧 [MOCK EMAIL SENT] Notification sent to ${assigneeEmail}: Task "${taskTitle}" assigned by ${assignedBy}.`
+      `📧 [MOCK EMAIL SENT] Notification sent to ${assigneeEmail}: Task "${taskTitle}" assigned by ${assignedBy}.`,
     );
 
-    return { status: 'SENT', sentAt: new Date().toISOString() };
+    return Promise.resolve({
+      status: 'SENT',
+      sentAt: new Date().toISOString(),
+    });
   }
 }

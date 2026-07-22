@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TASK_QUEUE_NAME, NotificationProcessor } from './notification.processor';
+import {
+  TASK_QUEUE_NAME,
+  NotificationProcessor,
+} from './notification.processor';
 import { NotificationService } from './notification.service';
 
 @Module({

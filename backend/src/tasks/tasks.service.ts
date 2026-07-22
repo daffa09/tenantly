@@ -25,7 +25,9 @@ export class TasksService {
     });
 
     if (!project) {
-      throw new NotFoundException('Project tidak ditemukan atau tidak berada di perusahaan ini');
+      throw new NotFoundException(
+        'Project tidak ditemukan atau tidak berada di perusahaan ini',
+      );
     }
 
     // 2. If assigneeId is provided, verify assignee belongs to the same tenant company
@@ -35,7 +37,9 @@ export class TasksService {
         where: { id: dto.assigneeId, companyId: user.companyId },
       });
       if (!assigneeUser) {
-        throw new BadRequestException('Assignee user tidak ditemukan di perusahaan ini');
+        throw new BadRequestException(
+          'Assignee user tidak ditemukan di perusahaan ini',
+        );
       }
     }
 
@@ -154,7 +158,9 @@ export class TasksService {
         where: { id: dto.assigneeId, companyId: user.companyId },
       });
       if (!newAssigneeUser) {
-        throw new BadRequestException('Assignee user tidak ditemukan di perusahaan ini');
+        throw new BadRequestException(
+          'Assignee user tidak ditemukan di perusahaan ini',
+        );
       }
     }
 

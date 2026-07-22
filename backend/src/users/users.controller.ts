@@ -15,7 +15,9 @@ import { RolesGuard } from '../common/guards/roles.guard';
 export class UsersController {
   constructor(private usersService: UsersService) {}
 
-  @ApiOperation({ summary: 'Add a user to the current tenant company (Admin only)' })
+  @ApiOperation({
+    summary: 'Add a user to the current tenant company (Admin only)',
+  })
   @Roles(Role.ADMIN)
   @Post()
   create(
@@ -33,7 +35,10 @@ export class UsersController {
 
   @ApiOperation({ summary: 'Get user details by ID within current tenant' })
   @Get(':id')
-  findOne(@Param('id') id: string, @CurrentUser('companyId') companyId: string) {
+  findOne(
+    @Param('id') id: string,
+    @CurrentUser('companyId') companyId: string,
+  ) {
     return this.usersService.findOneInCompany(id, companyId);
   }
 }

@@ -4,6 +4,7 @@ import {
   ExecutionContext,
   CallHandler,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
@@ -14,34 +15,36 @@ export interface ResponseEnvelope<T> {
   statusCode: number;
 }
 
+/** What a service returns when it wants to name its own success message. */
+interface ServiceResult<T> {
+  message: string;
+  data: T;
+}
+
+const isServiceResult = <T>(value: unknown): value is ServiceResult<T> =>
+  typeof value === 'object' &&
+  value !== null &&
+  'message' in value &&
+  'data' in value;
+
 @Injectable()
-export class TransformInterceptor<T>
-  implements NestInterceptor<T, ResponseEnvelope<T>>
-{
+export class TransformInterceptor<T> implements NestInterceptor<
+  T,
+  ResponseEnvelope<T>
+> {
   intercept(
     context: ExecutionContext,
-    next: CallHandler,
+    next: CallHandler<T | ServiceResult<T>>,
   ): Observable<ResponseEnvelope<T>> {
-    const ctx = context.switchToHttp();
-    const response = ctx.getResponse();
+    const response = context.switchToHttp().getResponse<Response>();
 
     return next.handle().pipe(
-      map((resData) => {
-        let message = 'Success';
-        let data = resData;
-
-        if (resData && typeof resData === 'object' && 'message' in resData && 'data' in resData) {
-          message = resData.message;
-          data = resData.data;
-        }
-
-        return {
-          success: true,
-          statusCode: response.statusCode,
-          message,
-          data,
-        };
-      }),
+      map((resData) => ({
+        success: true,
+        statusCode: response.statusCode,
+        message: isServiceResult<T>(resData) ? resData.message : 'Success',
+        data: isServiceResult<T>(resData) ? resData.data : resData,
+      })),
     );
   }
 }

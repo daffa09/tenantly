@@ -1,4 +1,8 @@
-import { Injectable, ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -50,7 +54,13 @@ export class AuthService {
       },
     });
 
-    const token = this.generateToken(user.id, user.email, user.name, user.role, user.companyId);
+    const token = this.generateToken(
+      user.id,
+      user.email,
+      user.name,
+      user.role,
+      user.companyId,
+    );
 
     return {
       message: 'Registrasi berhasil',
@@ -83,7 +93,13 @@ export class AuthService {
       throw new UnauthorizedException('Email atau password salah');
     }
 
-    const token = this.generateToken(user.id, user.email, user.name, user.role, user.companyId);
+    const token = this.generateToken(
+      user.id,
+      user.email,
+      user.name,
+      user.role,
+      user.companyId,
+    );
 
     return {
       message: 'Login berhasil',
@@ -101,7 +117,13 @@ export class AuthService {
     };
   }
 
-  private generateToken(userId: string, email: string, name: string, role: string, companyId: string) {
+  private generateToken(
+    userId: string,
+    email: string,
+    name: string,
+    role: string,
+    companyId: string,
+  ) {
     const payload = { sub: userId, email, name, role, companyId };
     return this.jwtService.sign(payload);
   }

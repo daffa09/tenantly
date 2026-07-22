@@ -1,8 +1,13 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Role } from '@prisma/client';
 import { ROLES_KEY } from '../decorators/roles.decorator';
-import { JwtPayloadUser } from '../decorators/current-user.decorator';
+import { AuthenticatedRequest } from '../decorators/current-user.decorator';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -18,16 +23,17 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest();
-    const user = request.user as JwtPayloadUser;
+    const user = context.switchToHttp().getRequest<AuthenticatedRequest>().user;
 
     if (!user || !user.role) {
       throw new ForbiddenException('Akses ditolak: User role tidak ditemukan');
     }
 
-    const hasRole = requiredRoles.includes(user.role as Role);
+    const hasRole = requiredRoles.includes(user.role);
     if (!hasRole) {
-      throw new ForbiddenException(`Akses ditolak: Role ${user.role} tidak memiliki hak akses`);
+      throw new ForbiddenException(
+        `Akses ditolak: Role ${user.role} tidak memiliki hak akses`,
+      );
     }
 
     return true;
