@@ -1,15 +1,29 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
+import { Role } from '@prisma/client';
 import { UsersService } from './users.service';
-import { CurrentUser, JwtPayloadUser } from '../common/decorators/current-user.decorator';
+import { CreateUserDto } from './dto/create-user.dto';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { Roles } from '../common/decorators/roles.decorator';
+import { RolesGuard } from '../common/guards/roles.guard';
 
 @ApiTags('Users')
 @ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('api/v1/users')
 export class UsersController {
   constructor(private usersService: UsersService) {}
+
+  @ApiOperation({ summary: 'Add a user to the current tenant company (Admin only)' })
+  @Roles(Role.ADMIN)
+  @Post()
+  create(
+    @CurrentUser('companyId') companyId: string,
+    @Body() createUserDto: CreateUserDto,
+  ) {
+    return this.usersService.createInCompany(companyId, createUserDto);
+  }
 
   @ApiOperation({ summary: 'Get all users in current tenant company' })
   @Get()
