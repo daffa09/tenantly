@@ -153,8 +153,20 @@ export function Dashboard({ user }: { user: User }) {
     try {
       await api.patch(`/api/v1/projects/${selected.id}/tasks/${task.id}`, { status });
     } catch (err) {
-      setTasks(before); // put it back where the server still thinks it is
+      setTasks(before);
       notify("error", apiError(err, "Could not move the task"));
+    }
+  };
+
+  const deleteTask = async (task: Task) => {
+    if (!selected || !confirm(`Delete "${task.title}"? This cannot be undone.`)) return;
+    try {
+      await api.delete(`/api/v1/projects/${selected.id}/tasks/${task.id}`);
+      setTasks(await fetchTasks(selected.id));
+      await refreshProjects();
+      notify("success", "Task deleted");
+    } catch (err) {
+      notify("error", apiError(err, "Could not delete the task"));
     }
   };
 
@@ -240,7 +252,12 @@ export function Dashboard({ user }: { user: User }) {
                 )}
               </div>
 
-              <KanbanBoard tasks={tasks} user={user} onMove={(task, status) => void moveTask(task, status)} />
+              <KanbanBoard
+                tasks={tasks}
+                user={user}
+                onMove={(task, status) => void moveTask(task, status)}
+                onDelete={isAdmin ? (task) => void deleteTask(task) : undefined}
+              />
             </>
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 py-20 text-center">

@@ -1,6 +1,6 @@
 "use client";
 
-import { GripVertical, Lock, UserRound } from "lucide-react";
+import { GripVertical, Lock, Trash2, UserRound } from "lucide-react";
 import type { Task, TaskStatus, User } from "@/lib/types";
 import { COLUMNS } from "./kanban-board";
 
@@ -11,6 +11,7 @@ export function TaskCard({
   onDragStart,
   onDragEnd,
   onStatusChange,
+  onDelete,
 }: {
   task: Task;
   user: User;
@@ -18,6 +19,7 @@ export function TaskCard({
   onDragStart: () => void;
   onDragEnd: () => void;
   onStatusChange: (status: TaskStatus) => void;
+  onDelete?: () => void;
 }) {
   const mine = task.assigneeId === user.id;
   const canEdit = user.role === "ADMIN" || mine;
@@ -37,11 +39,23 @@ export function TaskCard({
     >
       <div className="flex items-start justify-between gap-2">
         <h4 className="text-sm leading-snug font-semibold">{task.title}</h4>
-        {canEdit ? (
-          <GripVertical className="h-4 w-4 shrink-0 text-muted/60" aria-hidden />
-        ) : (
-          <Lock className="h-3.5 w-3.5 shrink-0 text-muted/60" aria-label="Read only" />
-        )}
+        <div className="flex shrink-0 items-center gap-1.5">
+          {onDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              aria-label={`Delete ${task.title}`}
+              className="cursor-pointer rounded-md p-1 text-muted/60 transition-colors duration-200 hover:bg-red-500/10 hover:text-red-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {canEdit ? (
+            <GripVertical className="h-4 w-4 text-muted/60" aria-hidden />
+          ) : (
+            <Lock className="h-3.5 w-3.5 text-muted/60" aria-label="Read only" />
+          )}
+        </div>
       </div>
 
       {task.description && (

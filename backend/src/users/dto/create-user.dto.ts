@@ -24,7 +24,7 @@ export class CreateUserDto {
   @ApiProperty({ example: 'password123', minLength: 8, maxLength: 72 })
   @IsNotEmpty()
   @MinLength(8)
-  @MaxLength(72) // bcrypt silently truncates past 72 bytes
+  @MaxLength(72)
   password: string;
 
   @ApiPropertyOptional({ enum: Role, default: Role.MEMBER })

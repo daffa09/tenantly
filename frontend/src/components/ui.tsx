@@ -39,7 +39,7 @@ export function Modal({
       ref={ref}
       onClose={onClose}
       onClick={(e) => {
-        if (e.target === ref.current) onClose(); // click on the backdrop
+        if (e.target === ref.current) onClose();
       }}
       aria-label={title}
       className="m-auto w-[calc(100vw-2rem)] max-w-md rounded-2xl border border-line bg-surface p-0 text-ink backdrop:bg-slate-950/60"

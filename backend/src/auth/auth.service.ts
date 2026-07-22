@@ -45,7 +45,7 @@ export class AuthService {
         email: dto.email,
         password: hashedPassword,
         name: dto.name,
-        role: Role.ADMIN, // owner of the new tenant, never client-supplied
+        role: Role.ADMIN,
         companyId: company.id,
       },
     });

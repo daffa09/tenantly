@@ -20,10 +20,12 @@ export function KanbanBoard({
   tasks,
   user,
   onMove,
+  onDelete,
 }: {
   tasks: Task[];
   user: User;
   onMove: (task: Task, status: TaskStatus) => void;
+  onDelete?: (task: Task) => void;
 }) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [hovered, setHovered] = useState<TaskStatus | null>(null);
@@ -74,6 +76,7 @@ export function KanbanBoard({
                     setHovered(null);
                   }}
                   onStatusChange={(next) => onMove(task, next)}
+                  onDelete={onDelete && (() => onDelete(task))}
                 />
               ))}
 

@@ -104,7 +104,7 @@ export class TasksService {
       where: {
         id: taskId,
         projectId,
-        companyId, // Strict tenant scoping
+        companyId,
       },
       include: {
         assignee: {

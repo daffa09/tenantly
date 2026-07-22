@@ -43,7 +43,7 @@ export class ProjectsService {
     const project = await this.prisma.project.findFirst({
       where: {
         id,
-        companyId, // Strict tenant scoping
+        companyId,
       },
       include: {
         tasks: {
