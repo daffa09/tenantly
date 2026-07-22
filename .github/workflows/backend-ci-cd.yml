@@ -120,5 +120,5 @@ jobs:
             set -e
             cd ~/tenantly
             docker compose pull backend
-            docker compose up -d backend
+            docker compose up -d backend gateway
             docker image prune -f
