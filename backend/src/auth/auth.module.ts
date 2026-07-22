@@ -13,9 +13,10 @@ import { JwtStrategy } from './jwt.strategy';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET') || 'super-secret-key-saas-multi-tenant-2026',
+        secret: configService.getOrThrow<string>('JWT_SECRET'),
         signOptions: {
-          expiresIn: (configService.get<string>('JWT_EXPIRES_IN') || '7d') as any,
+          // jsonwebtoken types want a literal duration union; ours is env-driven.
+          expiresIn: (configService.get<string>('JWT_EXPIRES_IN') || '7d') as `${number}d`,
         },
       }),
     }),

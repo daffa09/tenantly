@@ -1,8 +1,10 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy } from 'passport-jwt';
+import { Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
+import { Request } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
+import { AUTH_COOKIE } from './auth.cookie';
 
 export interface JwtPayload {
   sub: string;
@@ -19,9 +21,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private prisma: PrismaService,
   ) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      // Cookie only. No Authorization header fallback, otherwise a token
+      // stolen through XSS could still be replayed by script.
+      jwtFromRequest: (req: Request) => req?.cookies?.[AUTH_COOKIE] ?? null,
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET') || 'super-secret-key-saas-multi-tenant-2026',
+      secretOrKey: configService.getOrThrow<string>('JWT_SECRET'),
     });
   }
 

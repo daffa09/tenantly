@@ -1,45 +1,34 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
-import { TransformInterceptor } from './common/interceptors/transform.interceptor';
-import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { configureApp } from './app.setup';
+import { AUTH_COOKIE } from './auth/auth.cookie';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Enable CORS for Next.js frontend
+  configureApp(app);
+
+  // Explicit allowlist: '*' is invalid together with credentials, and the
+  // session cookie must only ever be readable by our own frontend.
   app.enableCors({
-    origin: '*',
+    origin: (process.env.CORS_ORIGINS || 'http://localhost:3000').split(','),
     credentials: true,
   });
 
-  // Global Validation Pipe
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      transform: true,
-      forbidNonWhitelisted: true,
-    }),
-  );
-
-  // Global Response & Exception Formatting
-  app.useGlobalInterceptors(new TransformInterceptor());
-  app.useGlobalFilters(new HttpExceptionFilter());
-
   // Swagger OpenAPI Setup
   const config = new DocumentBuilder()
-    .setTitle('Multi-Tenant SaaS API')
-    .setDescription('Backend Mini Project Management with Tenant Isolation & RBAC')
+    .setTitle('Tenantly API')
+    .setDescription('Multi-tenant mini project management with tenant isolation & RBAC')
     .setVersion('1.0')
-    .addBearerAuth()
+    .addCookieAuth(AUTH_COOKIE)
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
   const port = process.env.PORT || 3001;
   await app.listen(port);
-  console.log(`🚀 SaaS Backend running on http://localhost:${port}`);
+  console.log(`🚀 Tenantly API running on http://localhost:${port}`);
   console.log(`📚 Swagger Documentation on http://localhost:${port}/api/docs`);
 }
 bootstrap();
