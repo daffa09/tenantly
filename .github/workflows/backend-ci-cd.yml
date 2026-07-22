@@ -107,6 +107,11 @@ jobs:
     needs: build-and-push
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     runs-on: ubuntu-latest
+    # Shared with the frontend deploy: two `docker compose up` on the same
+    # project at once fight over the container rename and one of them dies.
+    concurrency:
+      group: tenantly-deploy
+      cancel-in-progress: false
     steps:
       - name: 🚀 SSH Deployment
         uses: appleboy/ssh-action@v1.0.3

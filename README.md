@@ -1,41 +1,61 @@
 # Tenantly — Multi-Tenant Mini Project Management
 
-Mini Asana/Trello untuk banyak perusahaan dalam satu instance. Setiap tenant (perusahaan) punya
-project, task, dan user sendiri, dan **tidak pernah** bisa melihat data tenant lain.
+Mini Asana/Trello untuk banyak perusahaan dalam satu instance. Setiap tenant punya project, task,
+dan user sendiri, dan **tidak pernah** bisa melihat data tenant lain.
 
-Stack: **NestJS** (API) · **Next.js** (web) · **PostgreSQL + Prisma** · **BullMQ/Redis** (async job).
+**Stack:** NestJS (API) · Next.js (web) · PostgreSQL + Prisma · BullMQ/Redis (async job).
 
-**Kenapa stack ini:** NestJS memberi struktur modul/guard/interceptor yang eksplisit, jadi aturan
-tenant dan RBAC punya satu tempat yang jelas alih-alih tersebar di controller. Prisma memberi skema
-tunggal yang bisa dibaca sebagai dokumentasi sekaligus migration yang ter-version. BullMQ dipilih
-karena Redis sudah lazim ada di stack SaaS dan job-nya cukup satu baris untuk keluar dari request
-cycle.
+Kenapa: NestJS memberi satu tempat eksplisit (module/guard/interceptor) untuk aturan tenant dan RBAC,
+alih-alih tersebar di controller. Prisma memberi skema tunggal yang terbaca sebagai dokumentasi
+sekaligus migration yang ter-version. BullMQ karena Redis sudah lazim ada di stack SaaS.
 
 ---
 
-## Menjalankan
+## Daftar Isi
 
-### Docker Compose (satu perintah)
+1. [Cara Menjalankan](#1-cara-menjalankan)
+2. [Akun Seed](#2-akun-seed)
+3. [Skema Database & ERD](#3-skema-database--erd)
+4. [Strategi Multi-Tenancy](#4-strategi-multi-tenancy)
+5. [API](#5-api)
+6. [RBAC](#6-rbac)
+7. [Background Job](#7-background-job)
+8. [Testing](#8-testing)
+9. [Keputusan Keamanan](#9-keputusan-keamanan)
+10. [Yang Di-skip & Rencana Berikutnya](#10-yang-di-skip--rencana-berikutnya)
+11. [Keputusan yang Masih Saya Ragukan](#11-keputusan-yang-masih-saya-ragukan)
+12. [Peta Requirement](#12-peta-requirement)
+
+---
+
+## 1. Cara Menjalankan
+
+### Opsi A — Docker (satu perintah, tidak butuh Postgres/Redis lokal)
 
 ```bash
-docker compose up --build
+docker compose -f docker-compose.dev.yml up --build
 ```
 
-Backend menjalankan `prisma migrate deploy` lalu seed otomatis saat start.
+Stack ini berisi Postgres + Redis + API + Web, dan otomatis menjalankan
+`prisma migrate deploy` lalu seed sebelum API start.
 
 - Web: <http://localhost:3000>
 - API: <http://localhost:3001>
 - Swagger: <http://localhost:3001/api/docs>
 
-### Manual (mode development)
+> `docker-compose.yml` (tanpa `-f`) adalah file **production** — memakai Postgres eksternal,
+> nginx gateway, dan image dari Docker Hub. File itu tidak akan jalan di mesin bersih;
+> pakai `docker-compose.dev.yml` untuk mencoba.
+
+### Opsi B — Manual (mode development)
 
 Prasyarat: PostgreSQL dan Redis berjalan lokal.
 
 ```bash
 cd backend
-cp .env.example .env        # WAJIB: isi JWT_SECRET, app menolak start tanpa itu
+cp .env.example .env        # WAJIB isi JWT_SECRET — app menolak start tanpa itu
 npm install
-npx prisma migrate deploy   # `npx prisma migrate dev` saat mengubah skema
+npx prisma migrate deploy   # `migrate dev` kalau skema berubah
 npm run seed
 npm run start:dev
 ```
@@ -46,20 +66,24 @@ npm install
 npm run dev
 ```
 
-### Test
+### Migration
+
+Migration ter-commit di `backend/prisma/migrations/`.
 
 ```bash
-cd backend
-npm test           # unit — tidak butuh database
-npm run test:e2e   # butuh PostgreSQL + Redis; suite ini MENGHAPUS isi database
+npx prisma migrate dev --name <nama>   # buat migration baru
+npx prisma migrate deploy              # terapkan di CI/production
 ```
 
-`test:e2e` membuktikan tenant isolation dan RBAC (12 test). `npm test` menjaga perbaikan keamanan
-registrasi tanpa perlu infrastruktur, sehingga tetap berjalan di CI.
+Setiap migration punya `down.sql` (dari `prisma migrate diff --to-empty`) karena Prisma tidak punya
+`migrate down`. Rollback: jalankan `down.sql`, lalu `prisma migrate resolve --rolled-back <migration>`.
+
+`schema.sql` dan `seed.sql` di root adalah salinan flat untuk di-paste manual ke psql saat deploy —
+**bukan** sumber kebenaran, dan tidak dipakai oleh kedua opsi di atas.
 
 ---
 
-## Akun Seed
+## 2. Akun Seed
 
 | Tenant | Role | Email | Password |
 | :--- | :--- | :--- | :--- |
@@ -68,17 +92,68 @@ registrasi tanpa perlu infrastruktur, sehingga tetap berjalan di CI.
 | Stark Industries | `ADMIN` | `admin@stark.com` | `password123` |
 | Stark Industries | `MEMBER` | `member@stark.com` | `password123` |
 
-Login dua tenant berbeda di dua browser profile untuk melihat isolasinya. Halaman login juga
-menyediakan tombol satu klik untuk akun-akun ini.
+Login dua tenant berbeda di dua browser profile untuk melihat isolasinya. Halaman login menyediakan
+tombol satu klik untuk tiap akun.
 
 ---
 
-## Strategi Multi-Tenancy
+## 3. Skema Database & ERD
+
+```mermaid
+erDiagram
+    Company ||--o{ User    : "punya"
+    Company ||--o{ Project : "punya"
+    Company ||--o{ Task    : "punya (denormalisasi)"
+    Project ||--o{ Task    : "punya"
+    User    ||--o{ Task    : "di-assign"
+
+    Company {
+        uuid   id PK
+        string name
+    }
+    User {
+        uuid   id PK
+        string email UK
+        string password
+        enum   role "ADMIN | MEMBER"
+        uuid   companyId FK "indexed"
+    }
+    Project {
+        uuid   id PK
+        string name
+        uuid   companyId FK "indexed"
+    }
+    Task {
+        uuid   id PK
+        string title
+        enum   status "TODO | IN_PROGRESS | DONE"
+        uuid   companyId  FK "indexed"
+        uuid   projectId  FK "indexed"
+        uuid   assigneeId FK "nullable"
+    }
+```
+
+Sumber: [`backend/prisma/schema.prisma`](backend/prisma/schema.prisma) ·
+migration: [`backend/prisma/migrations/`](backend/prisma/migrations/)
+
+**Keputusan modeling:**
+
+| Keputusan | Alasan |
+| :--- | :--- |
+| `Task.companyId` di-denormalisasi (padahal bisa dilacak lewat `Project`) | Setiap query task bisa memfilter tenant tanpa join. Satu kolom itu membuat filter tenant jadi seragam di semua tabel, bukan kasus-per-kasus. |
+| `onDelete: Cascade` dari `Company` | Hapus tenant = data tenant ikut bersih, tidak menyisakan baris yatim yang lolos filter. |
+| `Task.assigneeId` → `onDelete: SetNull` | Menghapus user tidak boleh ikut menghapus riwayat pekerjaannya. |
+| Index di `companyId` (semua tabel) + `projectId` | Setiap query selalu diawali filter tenant, jadi ini kolom yang paling sering di-scan. |
+| List endpoint pakai `include` untuk assignee | Menghindari N+1: satu query task + satu join, bukan satu query per task. |
+
+---
+
+## 4. Strategi Multi-Tenancy
 
 **Row-level scoping** (shared database, shared schema): setiap tabel milik tenant membawa kolom
 `companyId` yang ter-index.
 
-**Alasan:** untuk jumlah tenant menengah, ini yang paling murah dioperasikan — satu connection pool,
+**Kenapa:** untuk jumlah tenant menengah ini yang paling murah dioperasikan — satu connection pool,
 satu migration, satu proses backup. Schema-per-tenant memaksa menjalankan ulang setiap migration
 sebanyak jumlah tenant; database-per-tenant menambah pooling dinamis dan orkestrasi yang tidak
 sebanding dengan ukuran produk ini.
@@ -88,63 +163,122 @@ sebanding dengan ukuran produk ini.
 lain menghasilkan `404`.
 
 **Trade-off:** disiplin ada di level aplikasi. Satu query yang lupa `where: { companyId }` langsung
-membocorkan data lintas tenant — database tidak akan menghentikannya. Mitigasi saat ini: semua akses
+membocorkan data lintas tenant — database tidak akan menghentikannya. Mitigasi sekarang: semua akses
 lewat service yang menerima `companyId` sebagai argumen wajib, plus e2e test yang menembak ID tenant
-lain secara langsung. Mitigasi sebenarnya adalah PostgreSQL RLS (lihat daftar yang di-skip).
+lain secara langsung. Mitigasi sebenarnya adalah PostgreSQL RLS (lihat [bagian 10](#10-yang-di-skip--rencana-berikutnya)).
 
-### Kenapa `404`, bukan `403`
-
-Ketika tenant B menyentuh resource tenant A, API menjawab `404`. `403` secara implisit mengonfirmasi
-bahwa ID tersebut ada, dan itu cukup untuk memetakan isi tenant lain lewat tebakan. Dengan `404`,
-resource tenant lain benar-benar tidak ada dari sudut pandang pemanggil.
+**Kenapa `404`, bukan `403`:** `403` secara implisit mengonfirmasi bahwa ID tersebut ada, dan itu
+cukup untuk memetakan isi tenant lain lewat tebakan. Dengan `404`, resource tenant lain benar-benar
+tidak ada dari sudut pandang pemanggil.
 
 ---
 
-## Keputusan Keamanan
+## 5. API
+
+Semua endpoint ber-prefix `/api/v1`, dengan envelope seragam dari satu interceptor global:
+
+```json
+{ "success": true, "statusCode": 200, "message": "...", "data": {} }
+```
+
+| Method | Endpoint | Akses |
+| :--- | :--- | :--- |
+| `POST` | `/auth/register` | Publik — membuat tenant baru + admin pertamanya |
+| `POST` | `/auth/login` · `/auth/logout` | Publik |
+| `GET` | `/auth/me` | Terautentikasi |
+| `GET` | `/users` | Terautentikasi — anggota tenant sendiri |
+| `POST` | `/users` | Admin saja |
+| `GET` | `/projects` · `/projects/:id` | Terautentikasi, ter-scope tenant |
+| `POST` | `/projects` | Admin saja |
+| `PATCH` · `DELETE` | `/projects/:id` | Admin saja |
+| `GET` | `/projects/:id/tasks` · `/projects/:id/tasks/:taskId` | Terautentikasi, ter-scope tenant |
+| `POST` | `/projects/:id/tasks` | Admin saja |
+| `PATCH` | `/projects/:id/tasks/:taskId` | Admin, atau member yang menjadi assignee-nya |
+| `DELETE` | `/projects/:id/tasks/:taskId` | Admin saja |
+
+Swagger lengkap: <http://localhost:3001/api/docs>
+Swagger production: <https://tenantly.daffathan-labs.my.id/api/docs>
+
+---
+
+## 6. RBAC
+
+| | ADMIN | MEMBER |
+| :--- | :--- | :--- |
+| Lihat project & task tenantnya | ✅ | ✅ |
+| Buat/ubah/hapus project | ✅ | ❌ `403` |
+| Buat/hapus task | ✅ | ❌ `403` |
+| Ubah task yang di-assign ke dirinya | ✅ | ✅ |
+| Ubah task orang lain | ✅ | ❌ `403` |
+| Tambah user ke tenant | ✅ | ❌ `403` |
+
+Ditegakkan oleh `RolesGuard` (dekorator `@Roles`) untuk aturan per-endpoint, dan cek kepemilikan
+assignee di `TasksService.update` untuk aturan per-baris.
+
+---
+
+## 7. Background Job
+
+Assign task → job masuk antrian BullMQ (`attempts: 3`, exponential backoff), diproses worker di luar
+request cycle; pengiriman email di-mock ke log.
+
+Kalau Redis mati, service jatuh ke log inline supaya request tetap berhasil — pilihan sadar, dengan
+catatan bahwa itu menyembunyikan Redis yang sedang down.
+
+---
+
+## 8. Testing
+
+```bash
+cd backend
+npm test           # 2 unit test — tidak butuh database, jalan di CI
+npm run test:e2e   # 14 test — butuh PostgreSQL + Redis; suite ini MENGHAPUS isi database
+```
+
+`test:e2e` ([`backend/test/tenant-isolation.e2e-spec.ts`](backend/test/tenant-isolation.e2e-spec.ts)):
+
+| Grup | Isi |
+| :--- | :--- |
+| Tenant isolation | Tenant B tidak bisa membaca / mengubah project tenant A, tidak bisa membaca task-nya (semua `404`); registrasi tidak bisa menyusup ke tenant yang sudah ada (`409`) maupun memilih role sendiri (`400`) |
+| RBAC | Member tidak bisa hapus project, tidak bisa tambah user, tidak bisa ubah task orang lain — tapi **bisa** ubah task miliknya |
+| Validasi input | Task tanpa title ditolak `400` |
+| Sesi | Token hanya di cookie httpOnly (tidak pernah di body); request tanpa cookie ditolak `401` |
+
+CI ([`.github/workflows/`](.github/workflows/)) menjalankan lint, unit test, Trivy scan, dan build image.
+
+---
+
+## 9. Keputusan Keamanan
 
 | Keputusan | Alasan |
 | :--- | :--- |
-| Registrasi **selalu membuat tenant baru** (`409` kalau nama sudah dipakai) | Sebelumnya registrasi memakai company yang namanya cocok, dan `role` diambil dari body — siapa pun bisa mendaftar dengan `{"companyName":"Acme Corp","role":"ADMIN"}` lalu menguasai data Acme. Satu lubang itu meniadakan seluruh scoping `companyId` di belakangnya. |
-| Anggota baru hanya lewat `POST /api/v1/users` (ADMIN saja) | Konsekuensi dari poin di atas, sekaligus Requirement 4 "admin kelola user". `companyId` diambil dari JWT pemanggil, tidak pernah dari payload. |
-| JWT di **cookie httpOnly + SameSite=Lax** | Token tidak bisa dibaca JavaScript, jadi satu bug XSS tidak menghasilkan kredensial yang valid seminggu. `Lax` + allowlist CORS ketat menutup CSRF di kasus ini karena `localhost:3000 → localhost:3001` masih same-site. |
-| Boot **gagal** kalau `JWT_SECRET` kosong | Sebelumnya ada fallback secret yang tertulis di source code: kalau env lupa di-set di production, semua token bisa dipalsukan siapa pun yang pernah melihat repo. |
+| Registrasi **selalu membuat tenant baru** (`409` kalau nama sudah dipakai) | Sebelumnya registrasi memakai company yang namanya cocok dan `role` diambil dari body — siapa pun bisa mendaftar dengan `{"companyName":"Acme Corp","role":"ADMIN"}` lalu menguasai data Acme. Satu lubang itu meniadakan seluruh scoping `companyId` di belakangnya. |
+| Anggota baru hanya lewat `POST /api/v1/users` (ADMIN saja) | Konsekuensi dari poin di atas. `companyId` diambil dari JWT pemanggil, tidak pernah dari payload. |
+| JWT di **cookie httpOnly + SameSite=Lax** | Token tidak terbaca JavaScript, jadi satu bug XSS tidak menghasilkan kredensial valid seminggu. `Lax` + allowlist CORS ketat menutup CSRF di kasus ini. |
+| Boot **gagal** kalau `JWT_SECRET` kosong | Sebelumnya ada fallback secret di source code: kalau env lupa di-set di production, semua token bisa dipalsukan siapa pun yang pernah melihat repo. |
 | Rate limit 5/menit di `login` dan `register` | Menutup brute force password. |
 | `helmet` + CORS allowlist dari env | `origin: '*'` bersama `credentials: true` bahkan tidak valid menurut spec CORS. |
 | Error non-HTTP tidak diteruskan ke client | Error Prisma membawa nama tabel dan constraint. Sekarang di-log untuk operator, client menerima pesan generik. |
 
 ---
 
-## Async Job
+## 10. Yang Di-skip & Rencana Berikutnya
 
-Assign task → job masuk antrian BullMQ (`attempts: 3`, exponential backoff) dan diproses worker di
-luar request cycle; pengiriman email di-mock ke log. Kalau Redis mati, service jatuh ke log inline
-supaya request tetap berhasil — pilihan sadar, dengan catatan bahwa itu menyembunyikan Redis yang
-sedang down.
+| # | Yang di-skip | Rencana |
+| :--- | :--- | :--- |
+| 1 | **PostgreSQL Row-Level Security** — scoping masih murni di level aplikasi | `SET LOCAL app.current_tenant_id` per request + policy RLS, supaya query yang lupa filter pun tidak mengembalikan data tenant lain |
+| 2 | **Audit trail** — belum ada tabel `AuditLog` | Tabel `AuditLog` (actor, entity, aksi, timestamp) diisi dari satu interceptor |
+| 3 | **Pagination** — `GET /projects` dan `/tasks` mengembalikan seluruh isi tenant | Cursor pagination; cukup untuk ukuran sekarang, tidak untuk tenant besar |
+| 4 | **CSRF token** — mengandalkan `SameSite=Lax` + allowlist CORS | Double-submit token kalau nanti ada endpoint lintas site |
+| 5 | **MEMBER masih bisa mengubah `assigneeId`** task miliknya — artinya bisa melempar tugasnya ke orang lain | Batasi field yang boleh diubah member ke `status` saja |
+| 6 | **E2E belum jalan di CI** | Tambah service container Postgres + Redis di workflow |
+| 7 | **Race condition** — dua orang memindahkan task yang sama = "yang terakhir menang" | Kolom `version` + update bersyarat (optimistic locking) supaya update kedua ditolak, bukan diam-diam menimpa |
 
----
-
-## Yang Di-skip & Rencana Berikutnya
-
-1. **PostgreSQL Row-Level Security.** Scoping masih murni di level aplikasi. Berikutnya:
-   `SET LOCAL app.current_tenant_id` per request + policy RLS, sehingga query yang lupa filter pun
-   tidak mengembalikan data tenant lain.
-2. **Audit trail.** Belum ada tabel `AuditLog` (siapa mengubah apa, kapan); perubahan penting hanya
-   terlihat di log aplikasi.
-3. **Pagination.** `GET /projects` dan `/tasks` mengembalikan seluruh isi tenant. Cukup untuk ukuran
-   sekarang, tidak untuk tenant besar.
-4. **CSRF token.** Mengandalkan `SameSite=Lax` + allowlist CORS. Kalau nanti ada endpoint lintas
-   site, perlu double-submit token.
-5. **MEMBER masih bisa mengubah `assigneeId`** pada task miliknya, bukan hanya `status` — artinya ia
-   bisa melempar tugasnya ke orang lain. Perlu dibatasi ke `status` saja.
-6. **E2E belum jalan di CI.** Butuh service container Postgres + Redis di workflow; CI saat ini
-   menjalankan lint, unit test, Trivy scan, dan build image.
-7. **Race condition** belum ditangani eksplisit: dua orang yang memindahkan task yang sama akan
-   menghasilkan "yang terakhir menang". Berikutnya: kolom `version` + update bersyarat (optimistic
-   locking) supaya update kedua ditolak, bukan diam-diam menimpa.
+Urutannya sengaja: 1 dan 5 adalah lubang keamanan, sisanya kualitas operasional.
 
 ---
 
-## Keputusan yang Masih Saya Ragukan
+## 11. Keputusan yang Masih Saya Ragukan
 
 **Cookie httpOnly vs token di header.** Cookie menutup pencurian token lewat XSS, tapi menukarnya
 dengan permukaan CSRF dan membuat konsumen non-browser (mobile, service-to-service) lebih repot —
@@ -159,37 +293,22 @@ log akses. Kompromi yang saya ambil: response tetap `404`, kejadiannya dicatat d
 
 ---
 
-## Migration
+## 12. Peta Requirement
 
-Migration tersimpan di `backend/prisma/migrations/` dan ikut ter-commit.
-
-```bash
-npx prisma migrate dev --name <nama>   # membuat migration baru saat skema berubah
-npx prisma migrate deploy              # menerapkan di CI/production
-```
-
-Setiap migration disertai `down.sql` (dihasilkan dari `prisma migrate diff --to-empty`) untuk
-rollback manual, karena Prisma tidak punya perintah `migrate down`. Rollback: jalankan `down.sql`,
-lalu `prisma migrate resolve --rolled-back <migration>`.
-
----
-
-## API
-
-Semua endpoint ber-prefix `/api/v1` dan memakai envelope seragam:
-
-```json
-{ "success": true, "statusCode": 200, "message": "...", "data": {} }
-```
-
-| Method | Endpoint | Akses |
+| Requirement | Status | Di mana |
 | :--- | :--- | :--- |
-| POST | `/auth/register` | Publik — membuat tenant baru + admin pertamanya |
-| POST | `/auth/login` · `/auth/logout` | Publik |
-| GET | `/auth/me` | Terautentikasi |
-| GET · POST | `/users` | `GET` semua anggota tenant · `POST` admin saja |
-| GET | `/projects` · `/projects/:id` | Terautentikasi, ter-scope tenant |
-| POST · PATCH · DELETE | `/projects` | Admin saja |
-| GET | `/projects/:id/tasks` | Terautentikasi, ter-scope tenant |
-| POST · DELETE | `/projects/:id/tasks` | Admin saja |
-| PATCH | `/projects/:id/tasks/:taskId` | Admin, atau member yang menjadi assignee-nya |
+| 1. Skema DB + ERD/migration + strategi multi-tenancy | ✅ | [§3](#3-skema-database--erd), [§4](#4-strategi-multi-tenancy) |
+| 2. Auth + tenant isolation (resolve dari sesi) | ✅ | [§4](#4-strategi-multi-tenancy), [§9](#9-keputusan-keamanan) |
+| 3. CRUD Project & Task, prefix `/api/v1`, envelope seragam | ✅ | [§5](#5-api) |
+| 4. RBAC Admin/Member | ✅ | [§6](#6-rbac) |
+| 5. Background job lewat queue | ✅ | [§7](#7-background-job) |
+| 6. Testing (min. 3, satu membuktikan isolation) | ✅ 16 test | [§8](#8-testing) |
+| 7. README (run, trade-off, skip, keraguan) | ✅ | dokumen ini |
+| ➕ Index + hindari N+1 | ✅ | [§3](#3-skema-database--erd) |
+| ➕ Migration reversible | ✅ | [§1](#1-cara-menjalankan) — `down.sql` |
+| ➕ CI (lint + test) + Dockerfile | ✅ | [§8](#8-testing) |
+| ➕ Audit trail | ❌ | [§10](#10-yang-di-skip--rencana-berikutnya) #2 |
+| ➕ Penanganan race condition | ❌ | [§10](#10-yang-di-skip--rencana-berikutnya) #7 |
+
+Frontend Next.js tidak diminta soal (backend-only), tapi disertakan supaya isolasi tenant bisa
+dilihat langsung di browser dengan dua akun berbeda.

@@ -1,0 +1,50 @@
+# Self-contained stack for reviewers:
+#   docker compose -f docker-compose.dev.yml up --build
+# docker-compose.yml is the production file (external Postgres, gateway,
+# prebuilt images) and will not start on a clean machine — use this one locally.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: tenantly
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/tenantly?schema=public
+      JWT_SECRET: dev-only-secret-not-for-production
+      JWT_EXPIRES_IN: 7d
+      PORT: 3001
+      CORS_ORIGINS: http://localhost:3000
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    # ponytail: migrate + seed inline instead of a separate one-shot service.
+    # Reseeds on every restart (seed truncates) — fine for a demo stack, not for prod.
+    command: sh -c "npx prisma migrate deploy && npm run seed && node dist/main.js"
+    ports:
+      - "3001:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:3001
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
