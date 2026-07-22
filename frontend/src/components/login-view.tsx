@@ -79,27 +79,27 @@ export function LoginView() {
       {/* Brand side — collapses to a slim header on small screens.
           Content is capped and hugs the divider so the two halves stay close
           together on a wide monitor instead of drifting to opposite edges. */}
-      <section className="relative flex flex-col justify-center overflow-hidden bg-slate-950 px-6 py-10 text-slate-100 sm:px-10 lg:items-end lg:py-12 lg:pr-10">
+      <section className="relative flex flex-col justify-center overflow-hidden bg-indigo-50 px-6 py-10 text-slate-900 sm:px-10 dark:bg-slate-950 dark:text-slate-100 lg:items-end lg:py-12 lg:pr-16">
         <div
           aria-hidden
-          className="pointer-events-none absolute -top-32 -left-24 h-96 w-96 rounded-full bg-indigo-600/20 blur-3xl"
+          className="pointer-events-none absolute -top-32 -left-24 h-96 w-96 rounded-full bg-indigo-400/25 blur-3xl dark:bg-indigo-600/20"
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute -bottom-40 right-0 h-96 w-96 rounded-full bg-sky-500/10 blur-3xl"
+          className="pointer-events-none absolute -bottom-40 right-0 h-96 w-96 rounded-full bg-sky-400/20 blur-3xl dark:bg-sky-500/10"
         />
 
         <div className="relative w-full max-w-md">
           <div className="flex items-center gap-2.5">
-            <Layers className="h-6 w-6 text-indigo-400" />
+            <Layers className="h-6 w-6 text-brand" />
             <span className="text-lg font-extrabold tracking-tight">Tenantly</span>
           </div>
 
           <h1 className="mt-8 text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl">
             Every company gets its own workspace.
-            <span className="block text-slate-400">None of them can see each other.</span>
+            <span className="block text-slate-500 dark:text-slate-400">None of them can see each other.</span>
           </h1>
-          <p className="mt-4 text-sm leading-relaxed text-slate-400">
+          <p className="mt-4 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
             A small multi-tenant project manager: projects, tasks and people, kept apart by the
             session you sign in with.
           </p>
@@ -107,25 +107,25 @@ export function LoginView() {
           <ul className="mt-8 hidden space-y-4 lg:block">
             {PILLARS.map(({ icon: Icon, title, body }) => (
               <li key={title} className="flex gap-3.5">
-                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 ring-1 ring-white/10">
-                  <Icon className="h-4.5 w-4.5 text-indigo-400" />
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-slate-200 dark:bg-white/5 dark:ring-white/10">
+                  <Icon className="h-4.5 w-4.5 text-brand" />
                 </span>
                 <div>
                   <p className="text-sm font-semibold">{title}</p>
-                  <p className="mt-0.5 text-xs leading-relaxed text-slate-400">{body}</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-slate-600 dark:text-slate-400">{body}</p>
                 </div>
               </li>
             ))}
           </ul>
 
-          <p className="mt-10 hidden text-xs text-slate-500 lg:block">
+          <p className="mt-10 hidden text-xs text-slate-500 lg:block dark:text-slate-500">
             NestJS · Next.js · PostgreSQL · Prisma · BullMQ
           </p>
         </div>
       </section>
 
       {/* Form side */}
-      <section className="flex items-center justify-center px-6 py-10 sm:px-10 lg:justify-start lg:pl-10">
+      <section className="flex items-center justify-center px-6 py-10 sm:px-10 lg:justify-start lg:pl-16">
         <div className="w-full max-w-sm">
           <div className="mb-7 flex items-start justify-between gap-4">
             <div>
