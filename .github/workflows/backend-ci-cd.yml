@@ -119,6 +119,8 @@ jobs:
           script: |
             set -e
             cd ~/tenantly
+            # No `docker image prune` here: this job and the frontend one run in
+            # parallel, and a prune during the other's pull corrupts the content
+            # store ("unable to lease content"). Reclaim disk from cron instead.
             docker compose pull backend
             docker compose up -d backend gateway
-            docker image prune -f

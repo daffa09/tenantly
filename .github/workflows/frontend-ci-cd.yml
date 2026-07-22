@@ -121,4 +121,3 @@ jobs:
             cd ~/tenantly
             docker compose pull frontend
             docker compose up -d frontend gateway
-            docker image prune -f
