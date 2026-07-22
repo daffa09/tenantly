@@ -79,7 +79,7 @@ export function LoginView() {
       {/* Brand side — collapses to a slim header on small screens.
           Content is capped and hugs the divider so the two halves stay close
           together on a wide monitor instead of drifting to opposite edges. */}
-      <section className="relative flex flex-col justify-center overflow-hidden bg-slate-950 px-6 py-10 text-slate-100 sm:px-10 lg:items-end lg:py-12 lg:pr-14">
+      <section className="relative flex flex-col justify-center overflow-hidden bg-slate-950 px-6 py-10 text-slate-100 sm:px-10 lg:items-end lg:py-12 lg:pr-10">
         <div
           aria-hidden
           className="pointer-events-none absolute -top-32 -left-24 h-96 w-96 rounded-full bg-indigo-600/20 blur-3xl"
@@ -125,7 +125,7 @@ export function LoginView() {
       </section>
 
       {/* Form side */}
-      <section className="flex items-center justify-center px-6 py-10 sm:px-10 lg:justify-start lg:pl-14">
+      <section className="flex items-center justify-center px-6 py-10 sm:px-10 lg:justify-start lg:pl-10">
         <div className="w-full max-w-sm">
           <div className="mb-7 flex items-start justify-between gap-4">
             <div>
