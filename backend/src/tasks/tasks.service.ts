@@ -144,7 +144,7 @@ export class TasksService {
     // 2. Check RBAC rule for MEMBER role:
     // Member only allowed to edit tasks assigned to themselves
     if (user.role === Role.MEMBER) {
-      if (existingTask.assigneeId !== user.userId) {
+      if (existingTask.assigneeId !== user.id) {
         throw new ForbiddenException(
           'Akses ditolak: Member hanya dapat mengubah task yang di-assign ke dirinya',
         );

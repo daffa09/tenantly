@@ -6,7 +6,7 @@ import { Request } from 'express';
  * signatures, which need a value at runtime for emitDecoratorMetadata.
  */
 export class JwtPayloadUser {
-  userId: string;
+  id: string;
   email: string;
   name: string;
   role: 'ADMIN' | 'MEMBER';
