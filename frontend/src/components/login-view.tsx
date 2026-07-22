@@ -75,10 +75,7 @@ export function LoginView() {
   };
 
   return (
-    <main className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
-      {/* Brand side — collapses to a slim header on small screens.
-          Content is capped and hugs the divider so the two halves stay close
-          together on a wide monitor instead of drifting to opposite edges. */}
+    <main className="grid min-h-screen lg:grid-cols-2 lg:gap-16">
       <section className="relative flex flex-col justify-center overflow-hidden bg-indigo-50 px-6 py-10 text-slate-900 sm:px-10 dark:bg-slate-950 dark:text-slate-100 lg:items-end lg:py-12 lg:pr-16">
         <div
           aria-hidden
