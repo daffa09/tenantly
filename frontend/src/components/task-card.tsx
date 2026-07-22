@@ -4,10 +4,6 @@ import { GripVertical, Lock, UserRound } from "lucide-react";
 import type { Task, TaskStatus, User } from "@/lib/types";
 import { COLUMNS } from "./kanban-board";
 
-/**
- * Cards are draggable, but drag and drop is mouse-only — the status <select>
- * is the path that also works with a keyboard or a phone.
- */
 export function TaskCard({
   task,
   user,

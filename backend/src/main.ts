@@ -9,14 +9,11 @@ async function bootstrap() {
 
   configureApp(app);
 
-  // Explicit allowlist: '*' is invalid together with credentials, and the
-  // session cookie must only ever be readable by our own frontend.
   app.enableCors({
     origin: (process.env.CORS_ORIGINS || 'http://localhost:3000').split(','),
     credentials: true,
   });
 
-  // Swagger OpenAPI Setup
   const config = new DocumentBuilder()
     .setTitle('Tenantly API')
     .setDescription(

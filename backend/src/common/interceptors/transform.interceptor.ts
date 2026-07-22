@@ -15,7 +15,6 @@ export interface ResponseEnvelope<T> {
   statusCode: number;
 }
 
-/** What a service returns when it wants to name its own success message. */
 interface ServiceResult<T> {
   message: string;
   data: T;

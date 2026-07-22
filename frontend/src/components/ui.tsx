@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import { AlertCircle, CheckCircle2, X } from "lucide-react";
 
-/** Shared className recipes. Kept together so spacing stays consistent. */
 export const field =
   "w-full rounded-xl border border-line bg-raised px-3.5 py-2.5 text-sm text-ink placeholder:text-muted/70 transition-colors duration-200 focus:border-brand focus:outline-none";
 
@@ -15,10 +14,6 @@ export const primaryButton =
 export const ghostButton =
   "inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-line bg-surface px-3 py-2 text-sm font-medium text-muted transition-colors duration-200 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
 
-/**
- * Native <dialog>: focus trap, Escape-to-close and inert background come from
- * the platform, so there is no keyboard handling to get wrong here.
- */
 export function Modal({
   open,
   onClose,
@@ -67,7 +62,6 @@ export function Modal({
 
 export type Toast = { kind: "success" | "error"; text: string } | null;
 
-/** Announced to screen readers, auto-dismissed by the caller. */
 export function ToastView({ toast }: { toast: Toast }) {
   if (!toast) return null;
   const success = toast.kind === "success";

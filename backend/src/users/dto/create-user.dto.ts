@@ -32,4 +32,3 @@ export class CreateUserDto {
   @IsEnum(Role)
   role?: Role;
 }
-// No companyId here on purpose: the tenant comes from the caller's JWT.

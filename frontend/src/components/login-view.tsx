@@ -31,12 +31,12 @@ const DEMO_ACCOUNTS = [
   { email: "admin@stark.com", who: "Tony", tenant: "Stark Industries", role: "Admin" },
 ];
 
-type Mode = "signin" | "signup";
+type Mode = "login" | "signup";
 
 export function LoginView() {
   const { login, register } = useAuth();
 
-  const [mode, setMode] = useState<Mode>("signin");
+  const [mode, setMode] = useState<Mode>("login");
   const [companyName, setCompanyName] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("admin@acme.com");
@@ -60,9 +60,9 @@ export function LoginView() {
     }
   };
 
-  const signInAsDemo = async (demoEmail: string) => {
+  const loginAsDemo = async (demoEmail: string) => {
     setError("");
-    setMode("signin");
+    setMode("login");
     setEmail(demoEmail);
     setPassword("password123");
     setBusy(true);
@@ -98,7 +98,7 @@ export function LoginView() {
           </h1>
           <p className="mt-4 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
             A small multi-tenant project manager: projects, tasks and people, kept apart by the
-            session you sign in with.
+            session you log in with.
           </p>
 
           <ul className="mt-8 hidden space-y-4 lg:block">
@@ -121,16 +121,15 @@ export function LoginView() {
         </div>
       </section>
 
-      {/* Form side */}
       <section className="flex items-center justify-center px-6 py-10 sm:px-10 lg:justify-start lg:pl-16">
         <div className="w-full max-w-sm">
           <div className="mb-7 flex items-start justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold tracking-tight">
-                {mode === "signin" ? "Sign in" : "Create a workspace"}
+                {mode === "login" ? "Log in" : "Create a workspace"}
               </h2>
               <p className="mt-1 text-sm text-muted">
-                {mode === "signin"
+                {mode === "login"
                   ? "Use your work email to reach your company's board."
                   : "You will be the admin of a brand new tenant."}
               </p>
@@ -143,7 +142,7 @@ export function LoginView() {
             aria-label="Authentication mode"
             className="mb-6 grid grid-cols-2 gap-1 rounded-xl border border-line bg-raised p-1"
           >
-            {(["signin", "signup"] as const).map((value) => (
+            {(["login", "signup"] as const).map((value) => (
               <button
                 key={value}
                 role="tab"
@@ -157,7 +156,7 @@ export function LoginView() {
                   mode === value ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink"
                 }`}
               >
-                {value === "signin" ? "Sign in" : "Create workspace"}
+                {value === "login" ? "Log in" : "Create workspace"}
               </button>
             ))}
           </div>
@@ -225,7 +224,7 @@ export function LoginView() {
                 className={field}
                 required
                 minLength={8}
-                autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                autoComplete={mode === "login" ? "current-password" : "new-password"}
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -243,7 +242,7 @@ export function LoginView() {
 
             <button type="submit" disabled={busy} className={`${primaryButton} w-full py-3`}>
               {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-              {mode === "signin" ? "Sign in" : "Create workspace"}
+              {mode === "login" ? "Log in" : "Create workspace"}
             </button>
           </form>
 
@@ -257,7 +256,7 @@ export function LoginView() {
                   key={account.email}
                   type="button"
                   disabled={busy}
-                  onClick={() => void signInAsDemo(account.email)}
+                  onClick={() => void loginAsDemo(account.email)}
                   className="group flex w-full cursor-pointer items-center justify-between gap-3 rounded-xl border border-line bg-surface px-3.5 py-2.5 text-left transition-colors duration-200 hover:border-brand/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-60"
                 >
                   <span className="min-w-0">

@@ -12,10 +12,6 @@ import { CreateUserDto } from './dto/create-user.dto';
 export class UsersService {
   constructor(private prisma: PrismaService) {}
 
-  /**
-   * Adds a member to the caller's tenant. `companyId` comes from the caller's
-   * JWT, so an admin can never plant a user inside another company.
-   */
   async createInCompany(companyId: string, dto: CreateUserDto) {
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email },

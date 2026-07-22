@@ -32,6 +32,3 @@ export class RegisterDto {
   @MaxLength(72) // bcrypt silently truncates past 72 bytes
   password: string;
 }
-// The registering user is always the ADMIN of the tenant they just created.
-// `role` is deliberately absent: with forbidNonWhitelisted a client sending
-// it gets a 400 instead of silently escalating.

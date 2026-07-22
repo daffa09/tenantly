@@ -18,8 +18,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // There is no token to inspect any more: ask the API who we are and let the
-  // cookie answer. A 401 simply means "not signed in".
   useEffect(() => {
     api
       .get<{ data: User }>("/api/v1/auth/me")

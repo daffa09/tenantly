@@ -5,10 +5,6 @@ import { Role } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 
-/**
- * Guards the tenant-takeover fix. The e2e suite covers it too, but that suite
- * needs Postgres and Redis, so CI would never catch a regression here.
- */
 describe('AuthService.register', () => {
   const prisma = {
     user: { findUnique: jest.fn(), create: jest.fn() },

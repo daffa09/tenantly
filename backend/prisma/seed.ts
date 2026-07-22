@@ -6,7 +6,6 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Seeding database with Multi-Tenant fixtures...');
 
-  // Clean DB
   await prisma.task.deleteMany();
   await prisma.project.deleteMany();
   await prisma.user.deleteMany();
@@ -14,7 +13,6 @@ async function main() {
 
   const passwordHash = await bcrypt.hash('password123', 10);
 
-  // 1. Company A: Acme Corp
   const companyA = await prisma.company.create({
     data: { name: 'Acme Corp' },
   });
@@ -69,7 +67,6 @@ async function main() {
     },
   });
 
-  // 2. Company B: Stark Industries
   const companyB = await prisma.company.create({
     data: { name: 'Stark Industries' },
   });

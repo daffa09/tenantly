@@ -44,8 +44,6 @@ export function Dashboard({ user }: { user: User }) {
     setTimeout(() => setToast(null), 4000);
   }, []);
 
-  // Fetchers stay pure — they return data and never touch state, so effects can
-  // call them and set state from the resolved promise instead of synchronously.
   const fetchProjects = () =>
     api.get<{ data: Project[] }>("/api/v1/projects").then((res) => res.data.data);
   const fetchMembers = () =>
@@ -88,7 +86,6 @@ export function Dashboard({ user }: { user: User }) {
     };
   }, [selected, notify]);
 
-  /** Every dialog submits the same way: run it, refresh, report. */
   const run = async (action: () => Promise<string>, fallback: string) => {
     setBusy(true);
     try {
@@ -194,7 +191,7 @@ export function Dashboard({ user }: { user: User }) {
             <ThemeToggle />
             <button type="button" onClick={() => void logout()} className={ghostButton}>
               <LogOut className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Sign out</span>
+              <span className="hidden sm:inline">Log out</span>
             </button>
           </div>
         </div>

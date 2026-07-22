@@ -13,8 +13,6 @@ export const metadata: Metadata = {
     "Projects, tasks and roles for every tenant company, isolated from each other by design.",
 };
 
-// Runs while the browser parses <head>, so the saved theme lands on <html>
-// before the first paint instead of flashing after hydration.
 const themeScript = `(function(){try{var t=localStorage.getItem("tenantly_theme");if(!t)t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.setAttribute("data-theme",t)}catch(e){}})()`;
 
 export default function RootLayout({

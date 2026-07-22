@@ -70,7 +70,6 @@ export class ProjectsService {
   }
 
   async update(id: string, companyId: string, dto: UpdateProjectDto) {
-    // Ensure existence within tenant
     await this.findOne(id, companyId);
 
     const updated = await this.prisma.project.update({
@@ -88,7 +87,6 @@ export class ProjectsService {
   }
 
   async remove(id: string, companyId: string) {
-    // Ensure existence within tenant
     await this.findOne(id, companyId);
 
     await this.prisma.project.delete({

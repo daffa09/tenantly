@@ -19,7 +19,6 @@ export class TasksService {
   ) {}
 
   async create(projectId: string, user: JwtPayloadUser, dto: CreateTaskDto) {
-    // 1. Verify project exists in user's tenant company
     const project = await this.prisma.project.findFirst({
       where: { id: projectId, companyId: user.companyId },
     });
@@ -30,7 +29,6 @@ export class TasksService {
       );
     }
 
-    // 2. If assigneeId is provided, verify assignee belongs to the same tenant company
     let assigneeUser = null;
     if (dto.assigneeId) {
       assigneeUser = await this.prisma.user.findFirst({
@@ -43,7 +41,6 @@ export class TasksService {
       }
     }
 
-    // 3. Create task scoped to companyId and projectId
     const task = await this.prisma.task.create({
       data: {
         title: dto.title,
@@ -60,7 +57,6 @@ export class TasksService {
       },
     });
 
-    // 4. Dispatch async notification job out of request cycle
     if (assigneeUser) {
       await this.notificationService.dispatchTaskAssigned({
         taskId: task.id,
@@ -79,7 +75,6 @@ export class TasksService {
   }
 
   async findAllInProject(projectId: string, companyId: string) {
-    // Verify project tenant scoping
     const project = await this.prisma.project.findFirst({
       where: { id: projectId, companyId },
     });
@@ -137,12 +132,9 @@ export class TasksService {
     user: JwtPayloadUser,
     dto: UpdateTaskDto,
   ) {
-    // 1. Fetch existing task with tenant scoping
     const taskRes = await this.findOne(projectId, taskId, user.companyId);
     const existingTask = taskRes.data;
 
-    // 2. Check RBAC rule for MEMBER role:
-    // Member only allowed to edit tasks assigned to themselves
     if (user.role === Role.MEMBER) {
       if (existingTask.assigneeId !== user.id) {
         throw new ForbiddenException(
@@ -151,7 +143,6 @@ export class TasksService {
       }
     }
 
-    // 3. Verify new assignee belongs to company if changing assignee
     let newAssigneeUser = null;
     if (dto.assigneeId && dto.assigneeId !== existingTask.assigneeId) {
       newAssigneeUser = await this.prisma.user.findFirst({
@@ -164,7 +155,6 @@ export class TasksService {
       }
     }
 
-    // 4. Update task
     const updatedTask = await this.prisma.task.update({
       where: { id: taskId },
       data: {
@@ -180,7 +170,6 @@ export class TasksService {
       },
     });
 
-    // 5. Dispatch notification if assigned to new user
     if (newAssigneeUser) {
       await this.notificationService.dispatchTaskAssigned({
         taskId: updatedTask.id,
@@ -199,7 +188,6 @@ export class TasksService {
   }
 
   async remove(projectId: string, taskId: string, companyId: string) {
-    // Ensure task exists in tenant
     await this.findOne(projectId, taskId, companyId);
 
     await this.prisma.task.delete({

@@ -25,7 +25,6 @@ interface Entity {
   status?: string;
 }
 
-/** supertest types res.body as `any`; give the assertions something real. */
 const body = <T = null>(res: request.Response) => res.body as Envelope<T>;
 
 const cookieOf = (res: request.Response) =>
@@ -35,8 +34,6 @@ describe('SaaS Multi-Tenant & RBAC E2E Tests', () => {
   let app: INestApplication;
   let prisma: PrismaService;
 
-  // Auth now travels in an httpOnly cookie, so the suite passes cookies around
-  // exactly like a browser would.
   let cookieCompanyAAdmin: string;
   let cookieCompanyAMember: string;
   let cookieCompanyBAdmin: string;
@@ -62,13 +59,11 @@ describe('SaaS Multi-Tenant & RBAC E2E Tests', () => {
     await app.init();
     prisma = moduleFixture.get<PrismaService>(PrismaService);
 
-    // Setup Test Fixtures directly in DB
     await prisma.task.deleteMany();
     await prisma.project.deleteMany();
     await prisma.user.deleteMany();
     await prisma.company.deleteMany();
 
-    // 1. Register Admin Company A (registration always opens a NEW tenant)
     const resRegA = await request(app.getHttpServer())
       .post('/api/v1/auth/register')
       .send({
@@ -81,7 +76,6 @@ describe('SaaS Multi-Tenant & RBAC E2E Tests', () => {
     cookieCompanyAAdmin = authCookie(resRegA);
     companyAId = body<{ user: UserPayload }>(resRegA).data.user.companyId;
 
-    // 2. Admin A adds a MEMBER to their own tenant — the only way in
     const resMemberA = await request(app.getHttpServer())
       .post('/api/v1/users')
       .set('Cookie', cookieCompanyAAdmin)
@@ -100,7 +94,6 @@ describe('SaaS Multi-Tenant & RBAC E2E Tests', () => {
 
     cookieCompanyAMember = authCookie(resLoginMemberA);
 
-    // 3. Register Admin Company B
     const resRegB = await request(app.getHttpServer())
       .post('/api/v1/auth/register')
       .send({
@@ -113,7 +106,6 @@ describe('SaaS Multi-Tenant & RBAC E2E Tests', () => {
     cookieCompanyBAdmin = authCookie(resRegB);
     companyBId = body<{ user: UserPayload }>(resRegB).data.user.companyId;
 
-    // 4. Create Project in Company A
     const resProjA = await request(app.getHttpServer())
       .post('/api/v1/projects')
       .set('Cookie', cookieCompanyAAdmin)
@@ -124,7 +116,6 @@ describe('SaaS Multi-Tenant & RBAC E2E Tests', () => {
 
     projectAId = body<Entity>(resProjA).data.id;
 
-    // 5. Create Task 1 (Assigned to Member A)
     const resTask1 = await request(app.getHttpServer())
       .post(`/api/v1/projects/${projectAId}/tasks`)
       .set('Cookie', cookieCompanyAAdmin)
@@ -135,7 +126,6 @@ describe('SaaS Multi-Tenant & RBAC E2E Tests', () => {
 
     taskAssignedToMemberAId = body<Entity>(resTask1).data.id;
 
-    // 6. Create Task 2 (Unassigned / Assigned to Admin)
     const resTask2 = await request(app.getHttpServer())
       .post(`/api/v1/projects/${projectAId}/tasks`)
       .set('Cookie', cookieCompanyAAdmin)
@@ -193,7 +183,6 @@ describe('SaaS Multi-Tenant & RBAC E2E Tests', () => {
       expect(res.status).toBe(409);
       expect(body(res).success).toBe(false);
 
-      // and no user was planted inside Company A
       const usersInA = await prisma.user.count({
         where: { companyId: companyAId },
       });

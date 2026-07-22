@@ -26,10 +26,6 @@ export class AuthService {
       throw new ConflictException('Email sudah terdaftar');
     }
 
-    // Registration always opens a BRAND NEW tenant. Reusing an existing
-    // company when the name matches would let anyone who guesses a tenant
-    // name join it — and pick their own role while doing so.
-    // Joining an existing tenant is admin-only: POST /api/v1/users.
     const existingCompany = await this.prisma.company.findFirst({
       where: { name: dto.companyName },
     });

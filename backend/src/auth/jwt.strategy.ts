@@ -21,8 +21,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private prisma: PrismaService,
   ) {
     super({
-      // Cookie only. No Authorization header fallback, otherwise a token
-      // stolen through XSS could still be replayed by script.
       jwtFromRequest: (req: Request): string | null =>
         (req?.cookies as Record<string, string> | undefined)?.[AUTH_COOKIE] ??
         null,

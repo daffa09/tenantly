@@ -17,9 +17,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    // Anything that is not an HttpException was never meant for the client:
-    // a Prisma error carries table, column and constraint names. Log it for
-    // us, hand the caller a generic message.
     if (!(exception instanceof HttpException)) {
       this.logger.error(
         `Unhandled error on ${request.method} ${request.url}`,

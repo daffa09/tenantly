@@ -21,8 +21,6 @@ import {
 } from '../common/decorators/current-user.decorator';
 import { clearAuthCookie, setAuthCookie } from './auth.cookie';
 
-// Credential endpoints get a tighter budget than the global one: 5 attempts
-// per minute per IP is plenty for a human and useless for a password guesser.
 const CREDENTIAL_THROTTLE = { default: { limit: 5, ttl: 60_000 } };
 
 @ApiTags('Auth')

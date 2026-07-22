@@ -4,11 +4,6 @@ import { Moon, Sun } from "lucide-react";
 
 const STORAGE_KEY = "tenantly_theme";
 
-/**
- * No React state: the current theme already lives on <html data-theme>, so CSS
- * decides which icon shows. That also means the button is correct on the very
- * first paint, before hydration.
- */
 export function ThemeToggle() {
   const toggle = () => {
     const root = document.documentElement;
