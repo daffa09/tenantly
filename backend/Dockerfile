@@ -1,5 +1,8 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
+# Tanpa ini Prisma gagal deteksi versi openssl, fallback ke 1.1.x, dan
+# men-download engine linux-musl yang linking ke libssl.so.1.1 (nggak ada di Alpine).
+RUN apk add --no-cache openssl
 COPY package*.json ./
 RUN npm install
 COPY . .
@@ -8,6 +11,8 @@ RUN npm run build
 
 FROM node:22-alpine AS runner
 WORKDIR /app
+# Runner butuh libssl.so.3 juga — engine di-dlopen saat runtime, bukan saat build.
+RUN apk add --no-cache openssl
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
