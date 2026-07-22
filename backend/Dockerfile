@@ -14,4 +14,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 
 EXPOSE 3001
-CMD ["sh", "-c", "npx prisma migrate deploy && npm run seed && node dist/main.js"]
+# Migrations and seeding are separate one-shot compose services (profile
+# "tools"). Booting them here meant a bad migration crash-looped the API, and
+# the seed — which truncates every table — ran on every single restart.
+CMD ["node", "dist/main.js"]

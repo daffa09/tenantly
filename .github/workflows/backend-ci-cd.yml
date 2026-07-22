@@ -114,8 +114,11 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_KEY }}
+          # Schema changes are applied by hand with psql before merging (see
+          # .env.example) — this pipeline only rolls the image.
           script: |
-            cd ~/take-home-test || cd ~/app
+            set -e
+            cd ~/tenantly
             docker compose pull backend
             docker compose up -d backend
             docker image prune -f

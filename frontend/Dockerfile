@@ -3,6 +3,10 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
+# next build inlines NEXT_PUBLIC_* into the client bundle, so this has to be
+# known at build time — a runtime env var arrives too late to matter.
+ARG NEXT_PUBLIC_API_URL="http://localhost:3001"
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN npm run build
 
 FROM node:22-alpine AS runner

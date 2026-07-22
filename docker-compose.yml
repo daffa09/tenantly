@@ -1,66 +1,53 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: tenantly_postgres
-    restart: always
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgrespassword
-      POSTGRES_DB: tenantly
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    # The API runs `prisma migrate deploy` on boot, so it must not start
-    # before Postgres is actually accepting connections.
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
-  redis:
+  tenantly-redis:
     image: redis:7-alpine
-    container_name: tenantly_redis
+    container_name: tenantly-redis
     restart: always
-    ports:
-      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - postgres_default
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: tenantly_api
+    build: ./backend
+    image: ${DOCKERHUB_USERNAME}/tenantly-api:latest
+    container_name: tenantly-api
     restart: always
     ports:
-      - "3001:3001"
+      - "127.0.0.1:${API_PORT}:3001"
     environment:
-      DATABASE_URL: "postgresql://postgres:postgrespassword@postgres:5432/tenantly?schema=public"
-      # Compose-local secret. Real environments inject their own.
-      JWT_SECRET: "compose-local-secret-not-for-production-use"
-      JWT_EXPIRES_IN: "7d"
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
       PORT: 3001
-      CORS_ORIGINS: "http://localhost:3000"
-      REDIS_HOST: "redis"
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      REDIS_HOST: tenantly-redis
       REDIS_PORT: 6379
+      NODE_ENV: production
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_started
+      - tenantly-redis
+    networks:
+      - postgres_default
 
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
-    container_name: tenantly_web
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    image: ${DOCKERHUB_USERNAME}/tenantly-web:latest
+    container_name: tenantly-web
     restart: always
     ports:
-      - "3000:3000"
-    environment:
-      NEXT_PUBLIC_API_URL: "http://localhost:3001"
+      - "127.0.0.1:${WEB_PORT}:3000"
     depends_on:
       - backend
+    networks:
+      - postgres_default
 
 volumes:
-  postgres_data:
+  redis_data:
+
+networks:
+  postgres_default:
+    external: true
